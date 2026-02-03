@@ -89,6 +89,7 @@ def analyze_portfolio(request: AnalysisRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     # A mágica acontece aqui: segura o servidor ligado na porta 8000
