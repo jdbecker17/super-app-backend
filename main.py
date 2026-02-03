@@ -78,12 +78,12 @@ def analyze_portfolio(request: AnalysisRequest):
         response = chat_session.send_message(f"Analise esta carteira atual: {data_packet}")
         
         # D. Salva o Insight no Banco
-        supabase.table("ai_insights").insert({
-            "user_id": request.user_id,
-            "context": "General Analysis",
-            "ai_response": response.text,
-            "sentiment_score": 0.0 
-        }).execute()
+        # supabase.table("ai_insights").insert({
+           # "user_id": request.user_id,
+           # "context": "General Analysis",
+           # "ai_response": response.text,
+          #  "sentiment_score": 0.0 
+      #  }).execute()
 
         return {"ai_analysis": response.text}
 
