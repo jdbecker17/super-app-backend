@@ -89,3 +89,7 @@ def analyze_portfolio(request: AnalysisRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+if __name__ == "__main__":
+    import uvicorn
+    # Inicia o servidor na porta 8000 e aceita conexões externas (0.0.0.0)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
