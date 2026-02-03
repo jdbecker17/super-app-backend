@@ -61,7 +61,7 @@ def analyze_portfolio(request: AnalysisRequest):
 
     try:
         # A. Busca dados no Supabase
-        portfolio_response = supabase.table("portfolios").select("*, assets(*)").eq("user_id", request.user_id).execute()
+        portfolio_response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
         profile_response = supabase.table("profiles").select("*").eq("id", request.user_id).execute()
         
         if not portfolio_response.data:
