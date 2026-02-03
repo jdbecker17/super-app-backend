@@ -92,5 +92,5 @@ def analyze_portfolio(request: AnalysisRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # A mágica acontece aqui: segura o servidor ligado na porta 8000
+    # Inicia o servidor na porta 8000
     uvicorn.run(app, host="0.0.0.0", port=8000)
