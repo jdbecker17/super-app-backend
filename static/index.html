@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperAppInvest | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #0b0e11;
+            --card-bg: #15191e;
+            --primary: #00d293; /* Verde Financeiro */
+            --accent: #2962ff; /* Azul Institucional */
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Manrope', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container { max-width: 600px; width: 100%; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #2d3748;
+        }
+        .brand { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.5px; }
+        .brand span { color: var(--primary); }
+
+        /* Cards */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #2d3748;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .card-value { font-size: 1.8rem; font-weight: 700; }
+        .trend-up { color: var(--primary); font-size: 0.9rem; margin-left: 8px; }
+
+        /* AI Section */
+        .ai-box {
+            background: linear-gradient(180deg, #1a202c 0%, #15191e 100%);
+            border: 1px solid #3b82f6;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #60a5fa; }
+        
+        .ai-content {
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+        }
+
+        /* Button */
+        .btn-action {
+            width: 100%;
+            padding: 16px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-action:hover { background-color: #1e40af; }
+        .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <div class="brand">SUPERAPP<span>INVEST</span></div>
+            <i class="fas fa-bell" style="color: var(--text-muted);"></i>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Patrimônio Total</div>
+            <div class="card-value">R$ 1.240.500 <span class="trend-up"><i class="fas fa-arrow-up"></i> 2.4%</span></div>
+        </div>
+
+        <button class="btn-action" onclick="analisarCarteira()" id="btnAnalyze">
+            <i class="fas fa-microchip"></i> Gerar Análise de IA
+        </button>
+
+        <div class="ai-box" id="resultArea" style="display: none;">
+            <div class="ai-header">
+                <i class="fas fa-robot"></i> <strong>AI Advisor Insight</strong>
+            </div>
+            <div class="ai-content" id="aiText"></div>
+        </div>
+    </div>
+
+    <script>
+        async function analisarCarteira() {
+            const btn = document.getElementById('btnAnalyze');
+            const box = document.getElementById('resultArea');
+            const text = document.getElementById('aiText');
+
+            // Estado de Carregamento
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando dados...';
+            box.style.display = 'block';
+            text.innerText = "Conectando ao Google Gemini 2.0...";
+
+            try {
+                // ID DO USUÁRIO HARDCODED PARA TESTE (Tony Stark)
+                const userId = "a114b418-ec3c-407e-a2f2-06c3c453b684";
+
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                const data = await response.json();
+
+                if (data.ai_analysis) {
+                    text.innerText = data.ai_analysis;
+                } else if (data.erro_fatal) {
+                    text.innerText = "Erro: " + data.erro_fatal;
+                } else {
+                    text.innerText = JSON.stringify(data, null, 2);
+                }
+
+            } catch (error) {
+                text.innerText = "Erro de conexão: " + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-rotate-right"></i> Atualizar Análise';
+            }
+        }
+    </script>
+</body>
+</html>
