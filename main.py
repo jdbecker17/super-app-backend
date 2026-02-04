@@ -1,5 +1,6 @@
 import os
 import requests
+import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -89,8 +90,8 @@ def analyze_portfolio(request: AnalysisRequest):
         if not portfolio_response.data:
             return {"ai_analysis": "Carteira não encontrada no banco de dados."}
 
-        # B. Modelo Hardcoded (Gemini 1.5 Flash 001)
-        modelo_escolhido = "models/gemini-1.5-flash-001"
+        # B. Modelo Hardcoded (Teste Diagnóstico)
+        modelo_escolhido = "models/gemini-1.5-flash"
 
         # C. Envia para a IA com Retry
         url = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={GOOGLE_API_KEY}"
@@ -130,8 +131,21 @@ def analyze_portfolio(request: AnalysisRequest):
                 time.sleep(wait_time)
             
             else:
-                # Outros erros não adianta tentar de novo imediatamente
-                return {"erro_fatal": f"Erro Google ({modelo_escolhido}): {response.text}"}
+                # Erro! Tentar Diagnóstico
+                try:
+                    genai.configure(api_key=GOOGLE_API_KEY)
+                    # Lista modelos que suportam generateContent
+                    modelos = []
+                    for m in genai.list_models():
+                        if 'generateContent' in m.supported_generation_methods:
+                            modelos.append(m.name)
+                    
+                    return {
+                        "erro_diagnostico": f"Erro {response.status_code} ({modelo_escolhido}).",
+                        "modelos_disponiveis": modelos
+                    }
+                except Exception as e:
+                    return {"erro_fatal": f"Erro API: {response.text}. Falha Diagnóstico: {str(e)}"}
 
         return {"erro_fatal": f"Falha após {max_retries} tentativas. API do Google sobrecarregada."}
 
