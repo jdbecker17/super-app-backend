@@ -138,6 +138,54 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Table Styles */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        th {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .btn-delete:hover {
+            color: #b91c1c;
+        }
     </style>
 </head>
 
@@ -151,7 +199,8 @@
 
         <div class="card">
             <div class="card-label">Patrimônio Total</div>
-            <div class="card-value">R$ 1.240.500 <span class="trend-up"><i class="fas fa-arrow-up"></i> 2.4%</span>
+            <div class="card-value" id="totalPatrimonio">R$ 0,00 <span class="trend-up"
+                    style="font-size: 0.9rem; margin-left:10px;"><i class="fas fa-sync-alt"></i> Atualizando...</span>
             </div>
         </div>
 
@@ -169,6 +218,27 @@
             <button class="btn-action" onclick="cadastrarAtivo()" style="margin-top: 15px; background-color: #3b82f6;">
                 <i class="fas fa-plus-circle"></i> Salvar na Carteira
             </button>
+        </div>
+
+        <!-- Tabela Minha Carteira -->
+        <div class="card">
+            <div class="card-label">Minha Carteira</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Qtd</th>
+                            <th>Preço Médio</th>
+                            <th>Total</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetsTableBody">
+                        <!-- Linhas serão inseridas aqui via JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <button class="btn-action" onclick="analisarCarteira()" id="btnAnalyze">
@@ -207,6 +277,7 @@
 
                 if (response.ok) {
                     alert("Ativo cadastrado!");
+                    carregarCarteira(); // Atualiza a tabela
                     // Limpar campos
                     document.getElementById('ticker').value = '';
                     document.getElementById('amount').value = '';
@@ -258,6 +329,67 @@
                 btn.innerHTML = '<i class="fas fa-rotate-right"></i> Atualizar Análise';
             }
         }
+
+        // --- Novas Funções ---
+
+        async function carregarCarteira() {
+            try {
+                const response = await fetch('/assets');
+                if (!response.ok) throw new Error("Erro ao buscar ativos");
+
+                const assets = await response.json();
+                const tbody = document.getElementById('assetsTableBody');
+                tbody.innerHTML = ''; // Limpa tabela
+
+                let totalPatrimonio = 0;
+
+                assets.forEach(asset => {
+                    const totalInvestido = asset.quantity * asset.average_price;
+                    totalPatrimonio += totalInvestido;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600; color: white;">${asset.ticker}</td>
+                        <td>${asset.quantity}</td>
+                        <td>R$ ${asset.average_price.toFixed(2)}</td>
+                        <td style="color: var(--primary);">R$ ${totalInvestido.toFixed(2)}</td>
+                        <td style="text-align: right;">
+                            <button class="btn-delete" onclick="deletarAtivo(${asset.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Atualiza o Card de Patrimônio
+                document.getElementById('totalPatrimonio').innerHTML =
+                    `R$ ${totalPatrimonio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span class="trend-up"><i class="fas fa-check-circle"></i> Atualizado</span>`;
+
+            } catch (error) {
+                console.error("Erro ao carregar carteira:", error);
+            }
+        }
+
+        async function deletarAtivo(assetId) {
+            if (!confirm("Tem certeza que deseja excluir este ativo?")) return;
+
+            try {
+                const response = await fetch(`/assets/${assetId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    carregarCarteira(); // Recarrega a tabela e totais
+                } else {
+                    alert("Erro ao excluir ativo.");
+                }
+            } catch (error) {
+                console.error("Erro ao deletar:", error);
+            }
+        }
+
+        // Inicialização
+        window.onload = function () {
+            carregarCarteira();
+        };
     </script>
 </body>
 

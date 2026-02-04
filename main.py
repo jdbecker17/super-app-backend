@@ -52,6 +52,28 @@ def add_asset(asset: AssetRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 3.1 Rota de Listagem de Ativos (GET)
+@app.get("/assets")
+def get_assets():
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
+        response = supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 3.2 Rota de Exclusão de Ativos (DELETE)
+@app.delete("/assets/{asset_id}")
+def delete_asset(asset_id: int):
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        # Verifica se o ativo pertence ao usuário (seria ideal, mas por enquanto simplificamos deletando pelo ID)
+        response = supabase.table("portfolios").delete().eq("id", asset_id).execute()
+        return {"message": "Ativo deletado com sucesso!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # 4. Rota de Análise (Backend + IA)
 @app.post("/analyze")
 def analyze_portfolio(request: AnalysisRequest):
