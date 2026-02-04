@@ -30,7 +30,7 @@ try:
 
         # No main.py, substitua a linha do model por esta:
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest", # Adicionamos o "-latest"
+    model_name="gemini-1.5-flash",  # Removido o '-latest'
     generation_config=generation_config,
     system_instruction="Você é o Personal Broker AI. Analise a carteira em português."
 )
