@@ -1,81 +1,76 @@
 import os
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from supabase import create_client, Client
 import google.generativeai as genai
 
-# 1. Configuração de Segurança
+# --- Configuração Inicial ---
+app = FastAPI()
+
+# Pegamos as chaves
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Inicialização global das variáveis
-supabase: Client = None
-model = None
+# Validamos se as chaves existem (apenas aviso no log)
+if not all([SUPABASE_URL, SUPABASE_KEY, GOOGLE_API_KEY]):
+    print("⚠️ AVISO: Variáveis de ambiente faltando. Verifique o Dokploy.")
 
-# 2. Conexões e Inicialização
-try:
-    if SUPABASE_URL and SUPABASE_KEY:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    
-    if GOOGLE_API_KEY:
-        genai.configure(api_key=GOOGLE_API_KEY)
-        
-        generation_config = {
-          "temperature": 0.5,
-          "top_p": 0.95,
-          "max_output_tokens": 8192,
-          "response_mime_type": "text/plain",
-        }
+# Configuração da IA (Global)
+genai.configure(api_key=GOOGLE_API_KEY)
 
-        # No main.py, substitua a linha do model por esta:
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",  # Removido o '-latest'
-    generation_config=generation_config,
-    system_instruction="Você é o Personal Broker AI. Analise a carteira em português."
-)
-except Exception as e:
-    print(f"Erro na inicialização dos clientes: {e}")
-
-app = FastAPI()
-
+# Modelo de dados que vem do ReqBin/App
 class AnalysisRequest(BaseModel):
     user_id: str
 
 @app.get("/")
 def health_check():
-    return {"status": "online", "service": "AI Financial Core"}
+    return {"status": "online", "service": "SuperAppInvest API"}
 
 @app.post("/analyze")
 def analyze_portfolio(request: AnalysisRequest):
+    # 1. Validação de Segurança
     if not all([SUPABASE_URL, SUPABASE_KEY, GOOGLE_API_KEY]):
-        raise HTTPException(status_code=500, detail="Servidor mal configurado: Faltam chaves de API.")
-    
-    if model is None or supabase is None:
-        raise HTTPException(status_code=500, detail="Erro na conexão com os serviços (Supabase/Gemini).")
+        raise HTTPException(status_code=500, detail="Erro Interno: Chaves de API não configuradas no servidor.")
 
     try:
-        # A. Busca dados no Supabase
+        # 2. Conexão com Supabase (Cria na hora, evita queda de conexão)
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        # 3. Definição do Modelo (Cria na hora para garantir a versão correta)
+        # Usamos o nome padrão 'gemini-1.5-flash' que é o mais compatível
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.5,
+                "max_output_tokens": 4096,
+                "response_mime_type": "text/plain",
+            },
+            system_instruction="Você é o Personal Broker AI. Responda em Português do Brasil com formatação Markdown."
+        )
+
+        # 4. Busca os dados do Usuário
         portfolio_response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
         profile_response = supabase.table("profiles").select("*").eq("id", request.user_id).execute()
         
         if not portfolio_response.data:
-            return {"ai_analysis": "Sua carteira está vazia. Comece adicionando ativos."}
+            return {"ai_analysis": "Sua carteira está vazia no banco de dados."}
 
-        # B. Prepara o pacote para a IA
+        # 5. Prepara o pacote e envia para a IA
         data_packet = {
             "profile": profile_response.data,
             "portfolio": portfolio_response.data
         }
 
-        # C. Envia para o Google Gemini
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(f"Analise esta carteira atual: {data_packet}")
+        # Gera a resposta
+        response = model.generate_content(f"Analise esta carteira de investimentos: {data_packet}")
         
         return {"ai_analysis": response.text}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Se der erro, mostra o detalhe exato ao invés de derrubar o servidor
+        print(f"Erro no processamento: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro no servidor: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
