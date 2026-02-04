@@ -43,8 +43,8 @@ def add_asset(asset: AssetRequest):
         data = {
             "user_id": user_id,
             "ticker": asset.ticker.upper(),
-            "amount": asset.amount,
-            "buy_price": asset.price
+            "quantity": asset.amount,
+            "average_price": asset.price
         }
         
         supabase.table("portfolios").insert(data).execute()
