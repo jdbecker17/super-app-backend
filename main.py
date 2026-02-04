@@ -31,7 +31,7 @@ try:
         }
 
         model = genai.GenerativeModel(
-          model_name="gemini-1.5-pro", 
+          model = genai.GenerativeModel("gemini-1.5-flash"), 
           generation_config=generation_config,
           system_instruction="""
             Role: You are the "Personal Broker AI". Analyze the user's portfolio data provided in JSON.
