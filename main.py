@@ -89,8 +89,8 @@ def analyze_portfolio(request: AnalysisRequest):
         if not portfolio_response.data:
             return {"ai_analysis": "Carteira não encontrada no banco de dados."}
 
-        # B. Modelo Hardcoded (Gemini 1.5 Flash)
-        modelo_escolhido = "models/gemini-1.5-flash"
+        # B. Modelo Hardcoded (Gemini 1.5 Flash 001)
+        modelo_escolhido = "models/gemini-1.5-flash-001"
 
         # C. Envia para a IA com Retry
         url = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={GOOGLE_API_KEY}"
