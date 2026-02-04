@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuperAppInvest | Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+
     <style>
         :root {
             --bg-dark: #0b0e11;
             --card-bg: #15191e;
-            --primary: #00d293; /* Verde Financeiro */
-            --accent: #2962ff; /* Azul Institucional */
+            --primary: #00d293;
+            /* Verde Financeiro */
+            --accent: #2962ff;
+            /* Azul Institucional */
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
         }
@@ -28,7 +31,10 @@
             align-items: center;
         }
 
-        .container { max-width: 600px; width: 100%; }
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
 
         /* Header */
         .header {
@@ -39,8 +45,16 @@
             padding-bottom: 15px;
             border-bottom: 1px solid #2d3748;
         }
-        .brand { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.5px; }
-        .brand span { color: var(--primary); }
+
+        .brand {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .brand span {
+            color: var(--primary);
+        }
 
         /* Cards */
         .card {
@@ -49,12 +63,27 @@
             padding: 20px;
             margin-bottom: 15px;
             border: 1px solid #2d3748;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .card-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .card-value { font-size: 1.8rem; font-weight: 700; }
-        .trend-up { color: var(--primary); font-size: 0.9rem; margin-left: 8px; }
+        .card-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .trend-up {
+            color: var(--primary);
+            font-size: 0.9rem;
+            margin-left: 8px;
+        }
 
         /* AI Section */
         .ai-box {
@@ -66,9 +95,15 @@
             position: relative;
             overflow: hidden;
         }
-        
-        .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #60a5fa; }
-        
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #60a5fa;
+        }
+
         .ai-content {
             font-family: 'Courier New', monospace;
             line-height: 1.6;
@@ -94,11 +129,18 @@
             align-items: center;
             gap: 10px;
         }
-        .btn-action:hover { background-color: #1e40af; }
-        .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
 
+        .btn-action:hover {
+            background-color: #1e40af;
+        }
+
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -109,7 +151,24 @@
 
         <div class="card">
             <div class="card-label">Patrimônio Total</div>
-            <div class="card-value">R$ 1.240.500 <span class="trend-up"><i class="fas fa-arrow-up"></i> 2.4%</span></div>
+            <div class="card-value">R$ 1.240.500 <span class="trend-up"><i class="fas fa-arrow-up"></i> 2.4%</span>
+            </div>
+        </div>
+
+        <!-- Nova Card de Cadastro -->
+        <div class="card">
+            <div class="card-label">Cadastrar Novo Ativo</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                <input type="text" id="ticker" placeholder="Ticker (Ex: ITUB4)"
+                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
+                <input type="number" id="amount" placeholder="Qtd"
+                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
+                <input type="number" step="0.01" id="price" placeholder="Preço (R$)"
+                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
+            </div>
+            <button class="btn-action" onclick="cadastrarAtivo()" style="margin-top: 15px; background-color: #3b82f6;">
+                <i class="fas fa-plus-circle"></i> Salvar na Carteira
+            </button>
         </div>
 
         <button class="btn-action" onclick="analisarCarteira()" id="btnAnalyze">
@@ -125,6 +184,42 @@
     </div>
 
     <script>
+        async function cadastrarAtivo() {
+            const ticker = document.getElementById('ticker').value;
+            const amount = document.getElementById('amount').value;
+            const price = document.getElementById('price').value;
+
+            if (!ticker || !amount || !price) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/add-asset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticker: ticker,
+                        amount: parseInt(amount),
+                        price: parseFloat(price)
+                    })
+                });
+
+                if (response.ok) {
+                    alert("Ativo cadastrado!");
+                    // Limpar campos
+                    document.getElementById('ticker').value = '';
+                    document.getElementById('amount').value = '';
+                    document.getElementById('price').value = '';
+                } else {
+                    const data = await response.json();
+                    alert("Erro ao cadastrar: " + (data.detail || "Desconhecido"));
+                }
+            } catch (error) {
+                alert("Erro de conexão: " + error.message);
+            }
+        }
+
         async function analisarCarteira() {
             const btn = document.getElementById('btnAnalyze');
             const box = document.getElementById('resultArea');
@@ -134,7 +229,7 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando dados...';
             box.style.display = 'block';
-            text.innerText = "Conectando ao Google Gemini 2.0...";
+            text.innerText = "Conectando ao Google Gemini 1.5 Flash...";
 
             try {
                 // ID DO USUÁRIO HARDCODED PARA TESTE (Tony Stark)
@@ -165,4 +260,5 @@
         }
     </script>
 </body>
+
 </html>
