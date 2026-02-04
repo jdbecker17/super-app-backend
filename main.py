@@ -16,7 +16,7 @@ class AnalysisRequest(BaseModel):
 
 @app.get("/")
 def health_check():
-    return {"status": "online", "service": "SuperAppInvest API"}
+    return {"status": "online", "service": "SuperAppInvest Auto-Discovery"}
 
 @app.post("/analyze")
 def analyze_portfolio(request: AnalysisRequest):
@@ -24,66 +24,59 @@ def analyze_portfolio(request: AnalysisRequest):
         raise HTTPException(status_code=500, detail="Erro: Chaves de API ausentes.")
 
     try:
-        # 1. Busca dados no Supabase
+        # 1. Conecta no Supabase e busca os dados
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        
         portfolio_response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
         profile_response = supabase.table("profiles").select("*").eq("id", request.user_id).execute()
         
         if not portfolio_response.data:
             return {"ai_analysis": "Carteira vazia no banco de dados."}
 
-        # 2. Prepara os dados
+        # 2. AUTO-DESCOBERTA: Pergunta ao Google quais modelos existem para sua chave
+        list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GOOGLE_API_KEY}"
+        list_response = requests.get(list_url)
+        
+        if list_response.status_code != 200:
+            return {"erro_fatal": "Chave do Google recusada ao listar modelos.", "detalhe": list_response.text}
+            
+        # Filtra apenas modelos que geram texto (ignora modelos de apenas imagem/som)
+        modelos_google = list_response.json().get('models', [])
+        modelos_uteis = [m['name'] for m in modelos_google if 'generateContent' in m.get('supportedGenerationMethods', [])]
+        
+        if not modelos_uteis:
+            return {"erro_fatal": "Sua conta Google não tem nenhum modelo de texto liberado. Verifique o Google AI Studio."}
+
+        # Escolhe o melhor modelo automaticamente (prefere Flash, senão pega o primeiro da lista)
+        modelo_escolhido = modelos_uteis[0] # Pega o primeiro que aparecer
+        for m in modelos_uteis:
+            if "flash" in m:
+                modelo_escolhido = m
+                break
+
+        # 3. ENVIA PARA A IA (Usando o modelo que sabemos que existe)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={GOOGLE_API_KEY}"
+        
         data_packet = {
             "profile": profile_response.data,
             "portfolio": portfolio_response.data
         }
-
-        # 3. ESTRATÉGIA INTELIGENTE: Tenta vários modelos até um funcionar
-        # Lista de tentativas: O mais novo, o específico 001, e o clássico Pro
-        modelos_para_tentar = [
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-001",
-            "gemini-1.0-pro",
-            "gemini-pro"
-        ]
-
-        last_error = ""
-
-        for modelo in modelos_para_tentar:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={GOOGLE_API_KEY}"
-                
-                payload = {
-                    "contents": [{
-                        "parts": [{"text": f"Aja como um consultor financeiro. Analise esta carteira em Português: {data_packet}"}]
-                    }]
-                }
-
-                # Tenta conectar
-                response = requests.post(url, json=payload)
-                
-                # Se der certo (200), pega o texto e PARA de tentar
-                if response.status_code == 200:
-                    ai_text = response.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', 'Sem texto')
-                    return {
-                        "modelo_usado": modelo, # Mostra qual funcionou
-                        "ai_analysis": ai_text
-                    }
-                else:
-                    # Se der erro, guarda o motivo e tenta o próximo da lista
-                    last_error = response.text
-                    continue 
-
-            except Exception as e:
-                print(f"Erro ao tentar {modelo}: {e}")
-                continue
-
-        # Se chegar aqui, nenhum funcionou. Retorna o erro do último.
-        return {
-            "erro_fatal": "Nenhum modelo do Google funcionou.",
-            "ultimo_erro_google": last_error
+        
+        payload = {
+            "contents": [{
+                "parts": [{"text": f"Aja como um consultor financeiro. Analise esta carteira em Português: {data_packet}"}]
+            }]
         }
+
+        response = requests.post(url, json=payload)
+        
+        if response.status_code == 200:
+            ai_text = response.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', 'Sem texto')
+            return {
+                "modelo_descoberto_e_usado": modelo_escolhido,
+                "ai_analysis": ai_text
+            }
+        else:
+            return {"erro_final": response.text}
 
     except Exception as e:
         return {"erro_interno": str(e)}
