@@ -4,3 +4,4 @@ supabase
 pydantic
 python-dotenv
 requests
+google-generativeai>=0.7.2
