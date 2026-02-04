@@ -28,19 +28,12 @@ try:
           "response_mime_type": "text/plain",
         }
 
-        # CORREÇÃO DEFINITIVA: Adicionado o prefixo 'models/' para evitar o erro 404
-        model = genai.GenerativeModel(
-          model_name="models/gemini-1.5-flash", 
-          generation_config=generation_config,
-          system_instruction="""
-            Role: Você é o "Personal Broker AI" do SuperAppInvest. Analise os dados da carteira do usuário.
-            Capabilities: 
-            1. Verifique risco de concentração (>20% em um único ativo).
-            2. Sugira movimentos de eficiência tributária.
-            3. Saída estritamente em Markdown. 
-            Language: Portuguese (Brazil).
-          """
-        )
+        # No main.py, substitua a linha do model por esta:
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash-latest", # Adicionamos o "-latest"
+    generation_config=generation_config,
+    system_instruction="Você é o Personal Broker AI. Analise a carteira em português."
+)
 except Exception as e:
     print(f"Erro na inicialização dos clientes: {e}")
 
