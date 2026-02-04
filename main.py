@@ -39,8 +39,8 @@ def analyze_portfolio(request: AnalysisRequest):
             "portfolio": portfolio_response.data
         }
 
-        # 3. MUDANÇA AQUI: Usamos o modelo 'gemini-pro' que é garantido de funcionar
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GOOGLE_API_KEY}"
+       # MUDANÇA: Apontando para o Gemini 1.5 Flash (o modelo atual e rápido)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GOOGLE_API_KEY}"
         
         payload = {
             "contents": [{
