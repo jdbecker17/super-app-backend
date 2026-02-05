@@ -9,6 +9,8 @@ from supabase import create_client, Client
 
 import time
 
+import yfinance as yf
+
 app = FastAPI()
 
 # 1. Configuração de Chaves
@@ -34,6 +36,71 @@ def read_root():
 # Monta a pasta static para permitir arquivos futuros (CSS/JS externos)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Helper: Atualizador de Preços (Yahoo Finance)
+def update_prices(assets_data):
+    """
+    Recebe a lista de ativos do Supabase, busca preços no Yahoo Finance
+    e retorna um dicionário {ticker: current_price}.
+    """
+    if not assets_data:
+        return {}
+
+    # 1. Identificar Tickers (adicionar .SA se for necessário para B3)
+    tickers_map = {} # {ticker_yahoo: ticker_original}
+    tickers_to_fetch = []
+
+    for item in assets_data:
+        original = item['ticker']
+        # Lógica simples: Se não tem ponto e parece ação BR (geralmente 5/6 chars), tenta .SA
+        # Mas vamos forçar tentativa.
+        # Se for Cripto (BTC, ETH), o yfinance geralmente precisa de sufixo -USD ou -BRL (ex: BTC-USD)
+        # Assumindo que o usuário digite "PETR4" -> "PETR4.SA"
+        
+        yahoo_ticker = original
+        if "category" in item:
+            cat = item['category'].lower()
+            if "cripto" in cat:
+                if not "-" in original: yahoo_ticker = f"{original}-USD"
+            elif "ação" in cat or "fii" in cat or "renda" in cat:
+                if not original.endswith(".SA") and len(original) <= 6:
+                    yahoo_ticker = f"{original}.SA"
+
+        tickers_map[yahoo_ticker] = original
+        tickers_to_fetch.append(yahoo_ticker)
+
+    # 2. Buscar no Yahoo Finance (Batch)
+    try:
+        # download returns a DataFrame
+        # period='1d' is enough for latest price
+        data = yf.download(tickers_to_fetch, period="1d", progress=False)
+        
+        current_prices = {}
+        
+        # Se for apenas 1 ticker, a estrutura do DF é diferente
+        if len(tickers_to_fetch) == 1:
+            ticker = tickers_to_fetch[0]
+            try:
+                # Pega o último 'Close' disponível
+                price = data['Close'].iloc[-1].item() # .item() converts numpy to native python
+                current_prices[tickers_map[ticker]] = price
+            except:
+                pass
+        else:
+            # Multi-index columns: ('Close', 'PETR4.SA')
+            for yahoo_ticker in tickers_to_fetch:
+                try:
+                    price = data['Close'][yahoo_ticker].iloc[-1].item()
+                    current_prices[tickers_map[yahoo_ticker]] = price
+                except:
+                    # Fallback logic could go here
+                    pass
+        
+        return current_prices
+
+    except Exception as e:
+        print(f"Erro no YFinance: {e}")
+        return {}
+
 # 3. Rota de Cadastro de Ativos
 @app.post("/add-asset")
 def add_asset(asset: AssetRequest):
@@ -55,15 +122,38 @@ def add_asset(asset: AssetRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 3.1 Rota de Listagem de Ativos (GET)
+# 3.1 Rota de Listagem de Ativos (GET) - COM LIVE DATA
 @app.get("/assets")
 def get_assets():
     try:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
         user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
         response = supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
-        return response.data
+        assets = response.data
+
+        # Busca Preços Atualizados
+        live_prices = update_prices(assets)
+
+        # Enriquece os dados
+        for asset in assets:
+            ticker = asset['ticker']
+            avg_price = asset['average_price']
+            
+            # Se achou preço, usa. Senão, usa o preço médio como fallback (rentabilidade 0%)
+            current_price = live_prices.get(ticker, avg_price)
+            
+            asset['current_price'] = current_price
+            
+            if avg_price > 0:
+                asset['profit_percent'] = ((current_price - avg_price) / avg_price) * 100
+            else:
+                asset['profit_percent'] = 0.0
+
+        return assets
     except Exception as e:
+        # Em caso de erro grave, retorna erro 500. 
+        # (Idealmente logaríamos o erro e retornaríamos os dados sem live price)
+        print(f"Erro GET /assets: {e}") 
         raise HTTPException(status_code=500, detail=str(e))
 
 # 3.2 Rota de Exclusão de Ativos (DELETE)
@@ -129,30 +219,44 @@ def analyze_portfolio(request: AnalysisRequest):
         raise HTTPException(status_code=500, detail="Erro: Chaves de API ausentes.")
 
     try:
-        # A. Busca dados no Banco (Supabase)
+        # A. Busca dados usando a nossa própria função interna (para já pegar os Live Prices!)
+        # Pequeno hack: chamamos a lógica da get_assets internamente
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        portfolio_response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
+        response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
+        assets = response.data
         
-        if not portfolio_response.data:
+        if not assets:
             return {"ai_analysis": "Carteira vazia. Adicione ativos para análise."}
+            
+        # Busca preços para enriquecer o prompt
+        live_prices = update_prices(assets)
 
-        # B. Monta os dados para o Prompt
-        # Formata bonitinho para a IA entender melhor
+        # B. Monta os dados para o Prompt com Rentabilidade
         portfolio_summary = []
-        for item in portfolio_response.data:
-            portfolio_summary.append(f"- {item['ticker']}: {item['quantity']} cotas a R$ {item['average_price']}")
+        for item in assets:
+            cur_price = live_prices.get(item['ticker'], item['average_price'])
+            profit = 0.0
+            if item['average_price'] > 0:
+                profit = ((cur_price - item['average_price']) / item['average_price']) * 100
+            
+            portfolio_summary.append(
+                f"- {item['ticker']} ({item.get('category', 'Ativo')}): "
+                f"{item['quantity']} cotas. "
+                f"Comprado a R$ {item['average_price']:.2f}, Hoje vale R$ {cur_price:.2f}. "
+                f"Resultado: {profit:+.2f}%"
+            )
         
         portfolio_text = "\n".join(portfolio_summary)
 
         # C. Prompt de Consultor de Elite
         prompt = (
             f"Atue como um Consultor de Elite de Wealth Management. "
-            f"Analise esta carteira de investimentos:\n{portfolio_text}\n\n"
+            f"Analise esta carteira de investimentos (Dados ATUALIZADOS de mercado):\n{portfolio_text}\n\n"
             f"Responda EXCLUSIVAMENTE em HTML (sem tags <html> ou <body>, apenas o conteúdo div/p/ul) "
             f"com estas 3 seções estilizadas e curtas:\n"
-            f"1. <h3>Risco da Carteira</h3> (Análise objetiva)\n"
-            f"2. <h3>Sugestão de Diversificação</h3> (O que falta?)\n"
-            f"3. <h3>Comentário sobre o maior ativo</h3> (Destaque o principal)\n"
+            f"1. <h3>Risco da Carteira</h3> (Análise objetiva baseada nas classes de ativos)\n"
+            f"2. <h3>Performance Atual</h3> (Elogie os lucros e alerte sobre os prejuízos)\n"
+            f"3. <h3>Sugestão de Rebalanceamento</h3> (O que comprar/vender?)\n"
             f"Seja direto e profissional."
         )
 
