@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html class="dark" lang="pt-BR">
+<html class="dark" lang="en">
 
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>SuperAppInvest V8.1</title>
+    <title>InvestEdge Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
@@ -22,7 +22,9 @@
                         "neon-green": "#0bda5b",
                         "neon-red": "#ff4d4d",
                     },
-                    fontFamily: { "display": ["Manrope", "sans-serif"] },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
                 },
             },
         }
@@ -61,43 +63,61 @@
     <div class="min-h-screen flex flex-col">
 
         <header
-            class="flex items-center justify-between border-b border-[#e5e7eb] dark:border-[#283039] px-6 py-3 bg-white dark:bg-background-dark sticky top-0 z-50">
-            <div class="flex items-center gap-4">
-                <div class="size-8 text-primary">
-                    <svg class="size-8" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6 36L18 24L26 32L42 16" stroke="currentColor" stroke-linecap="round"
-                            stroke-linejoin="round" stroke-width="4"></path>
-                        <path d="M42 26V16H32" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                            stroke-width="4"></path>
-                    </svg>
+            class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-[#283039] px-6 py-3 bg-white dark:bg-background-dark sticky top-0 z-50">
+            <div class="flex items-center gap-8">
+                <div class="flex items-center gap-4 text-[#111418] dark:text-white">
+                    <div class="size-8 text-primary">
+                        <svg class="size-8" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 36L18 24L26 32L42 16" stroke="currentColor" stroke-linecap="round"
+                                stroke-linejoin="round" stroke-width="4"></path>
+                            <path d="M42 26V16H32" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                stroke-width="4"></path>
+                            <path d="M6 42H42" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                stroke-opacity="0.2" stroke-width="4"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">InvestEdge <span
+                            class="text-xs bg-primary px-2 py-0.5 rounded text-white ml-1">V8</span></h2>
                 </div>
-                <h2 class="text-lg font-bold">SuperAppInvest <span
-                        class="text-xs bg-primary px-2 py-0.5 rounded text-white ml-2">V8.1 LIVE</span></h2>
+                <nav class="hidden md:flex items-center gap-6">
+                    <a class="text-[#111418] dark:text-white text-sm font-bold border-b-2 border-primary pb-1"
+                        href="#">Dashboard</a>
+                    <a class="text-[#637588] dark:text-[#9dabb9] text-sm font-medium hover:text-primary transition-colors"
+                        href="#">Portfolio</a>
+                    <a class="text-[#637588] dark:text-[#9dabb9] text-sm font-medium hover:text-primary transition-colors"
+                        href="#">Análises IA</a>
+                </nav>
             </div>
-            <div class="flex gap-4 items-center">
-                <button onclick="document.getElementById('addModal').classList.remove('hidden')"
-                    class="hidden md:flex bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg hover:shadow-primary/50">
-                    + Novo Aporte
-                </button>
+            <div class="flex flex-1 justify-end gap-4 items-center">
+                <div class="hidden sm:flex flex-col min-w-40 h-10 max-w-64">
+                    <div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-[#f0f2f4] dark:bg-[#283039]">
+                        <div
+                            class="text-[#637588] dark:text-[#9dabb9] flex border-none items-center justify-center pl-4 rounded-l-lg">
+                            <span class="material-symbols-outlined text-[20px]">search</span>
+                        </div>
+                        <input
+                            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#111418] dark:text-white focus:outline-0 bg-transparent border-none h-full px-4 text-sm"
+                            placeholder="Buscar ativo..." />
+                    </div>
+                </div>
+                <div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border border-[#283039]"
+                    style='background-image: url("https://i.pravatar.cc/150?img=11");'></div>
             </div>
         </header>
 
         <div class="w-full bg-[#111418] dark:bg-[#0b1015] border-b border-[#283039] overflow-hidden py-2">
             <div class="flex overflow-x-auto no-scrollbar gap-8 px-6 animate-scroll whitespace-nowrap">
-                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">IBOVESPA</span><span
-                        class="text-white text-sm font-medium">128.000</span><span class="text-neon-green text-xs">▲
-                        0.5%</span></div>
-                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">S&P 500</span><span
-                        class="text-white text-sm font-medium">4,950</span><span class="text-neon-green text-xs">▲
-                        1.2%</span></div>
-                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">NASDAQ</span><span
-                        class="text-white text-sm font-medium">15,600</span><span class="text-neon-green text-xs">▲
+                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">IBOV</span><span
+                        class="text-white text-sm font-medium">128.500</span><span class="text-neon-green text-xs">▲
                         0.8%</span></div>
-                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">BTC/USD</span><span
-                        class="text-white text-sm font-medium">43,200</span><span class="text-neon-green text-xs">▲
+                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">S&P 500</span><span
+                        class="text-white text-sm font-medium">5.000</span><span class="text-neon-green text-xs">▲
+                        1.2%</span></div>
+                <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">BTC</span><span
+                        class="text-white text-sm font-medium">$62,000</span><span class="text-neon-green text-xs">▲
                         2.5%</span></div>
                 <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">USD/BRL</span><span
-                        class="text-white text-sm font-medium">4.95</span><span class="text-neon-red text-xs">▼
+                        class="text-white text-sm font-medium">4.98</span><span class="text-neon-red text-xs">▼
                         0.1%</span></div>
                 <div class="flex items-center gap-2"><span class="text-[#9dabb9] text-xs font-bold">CDI</span><span
                         class="text-white text-sm font-medium">11.25%</span><span class="text-neon-green text-xs">▲
@@ -105,114 +125,135 @@
             </div>
         </div>
 
-        <main class="flex-1 p-4 sm:p-6 md:p-8 max-w-[1400px] w-full mx-auto flex flex-col gap-6">
+        <main class="flex-1 flex justify-center py-8 px-4 sm:px-6 md:px-8">
+            <div class="max-w-[1400px] w-full flex flex-col gap-6">
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div
-                    class="lg:col-span-2 rounded-xl bg-white dark:bg-surface-dark p-6 border border-[#e5e7eb] dark:border-[#283039] shadow-sm relative overflow-hidden group">
-                    <div
-                        class="absolute right-0 top-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-primary/10 transition-all">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex flex-col gap-1">
+                        <h1 class="text-[#111418] dark:text-white text-3xl font-extrabold leading-tight">Visão Geral
+                        </h1>
+                        <p class="text-[#637588] dark:text-[#9dabb9] text-base font-normal">Bem-vindo de volta. Aqui
+                            está o desempenho do seu portfólio hoje.</p>
                     </div>
-                    <div class="relative z-10">
-                        <p class="text-[#637588] dark:text-[#9dabb9] text-sm font-bold uppercase tracking-wider mb-2">
-                            Patrimônio Total</p>
-                        <h3 id="total-balance"
-                            class="text-[#111418] dark:text-white text-4xl font-extrabold tracking-tight">R$ --,--</h3>
-                        <div class="flex items-center gap-3 mt-4">
-                            <span id="total-profit-badge"
-                                class="bg-gray-500/10 text-gray-400 px-3 py-1 rounded-md text-sm font-bold flex items-center gap-1">
-                                --%
-                            </span>
-                            <span class="text-[#637588] dark:text-[#9dabb9] text-sm">Rentabilidade Geral</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="lg:col-span-1 rounded-xl bg-gradient-to-br from-indigo-900 to-surface-dark p-6 border border-indigo-500/30 shadow-lg flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="material-symbols-outlined text-indigo-400">smart_toy</span>
-                            <h3 class="text-white font-bold text-lg">Gemini Advisor</h3>
-                        </div>
-                        <p class="text-indigo-200 text-sm">Obtenha insights de nível institucional sobre sua carteira
-                            atualizada.</p>
-                    </div>
-                    <button onclick="runAnalysis()"
-                        class="mt-4 w-full py-2 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-lg transition-colors">
-                        Gerar Análise IA
+                    <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+                        class="group flex items-center justify-center gap-2 cursor-pointer overflow-hidden rounded-lg h-10 px-5 bg-primary hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-[0_0_15px_rgba(19,127,236,0.3)]">
+                        <span class="material-symbols-outlined text-[20px]">add</span>
+                        <span>Novo Aporte</span>
                     </button>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-                <div
-                    class="xl:col-span-2 rounded-xl bg-white dark:bg-surface-dark border border-[#e5e7eb] dark:border-[#283039] overflow-hidden">
-                    <div class="p-4 border-b border-[#e5e7eb] dark:border-[#283039] flex justify-between items-center">
-                        <h3 class="font-bold text-lg dark:text-white">Minhas Posições</h3>
-                        <button onclick="fetchAssets()"
-                            class="text-primary hover:text-white text-sm font-bold">Atualizar</button>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div
+                        class="lg:col-span-2 rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark p-6 shadow-sm relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-6 z-10 relative">
+                            <div>
+                                <p
+                                    class="text-[#637588] dark:text-[#9dabb9] text-sm font-semibold uppercase tracking-wider mb-1">
+                                    Patrimônio Total</p>
+                                <h3 id="total-balance" class="text-[#111418] dark:text-white text-4xl font-bold">R$
+                                    --,--</h3>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span id="total-profit-badge"
+                                        class="bg-green-500/10 text-neon-green px-2 py-0.5 rounded text-xs font-bold">--%</span>
+                                    <span class="text-[#637588] dark:text-[#9dabb9] text-sm">Rentabilidade Global</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-24 opacity-20 pointer-events-none">
+                            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                <path d="M0 100 L0 50 Q 25 30 50 60 T 100 20 L 100 100 Z" fill="#137fec"></path>
+                            </svg>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left">
-                            <thead
-                                class="bg-[#f0f2f4] dark:bg-[#111418] text-[#637588] dark:text-[#9dabb9] uppercase font-bold text-xs">
-                                <tr>
-                                    <th class="px-6 py-3">Ativo</th>
-                                    <th class="px-6 py-3 text-right">Qtd</th>
-                                    <th class="px-6 py-3 text-right">Médio</th>
-                                    <th class="px-6 py-3 text-right">Atual</th>
-                                    <th class="px-6 py-3 text-right">Rentab.</th>
-                                    <th class="px-6 py-3 text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="assets-table-body" class="divide-y divide-[#e5e7eb] dark:divide-[#283039]">
-                            </tbody>
-                        </table>
+
+                    <div
+                        class="lg:col-span-1 rounded-xl border border-indigo-500/30 bg-gradient-to-br from-[#1c2632] to-indigo-900/20 p-6 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-3 text-indigo-400">
+                                <span class="material-symbols-outlined">psychology</span>
+                                <h3 class="font-bold uppercase text-xs tracking-wider">Gemini Advisor</h3>
+                            </div>
+                            <p class="text-white text-lg font-bold leading-tight">Analise sua carteira com Inteligência
+                                Artificial.</p>
+                            <p class="text-[#9dabb9] text-sm mt-2">Receba insights sobre riscos e oportunidades.</p>
+                        </div>
+                        <button onclick="runAnalysis()"
+                            class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm transition-colors">
+                            Gerar Análise
+                        </button>
                     </div>
                 </div>
 
-                <div
-                    class="xl:col-span-1 rounded-xl bg-white dark:bg-surface-dark border border-[#e5e7eb] dark:border-[#283039] p-6">
-                    <h3 class="font-bold text-lg dark:text-white mb-4">Alocação</h3>
-                    <div class="space-y-4" id="allocation-bars">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+                    <div
+                        class="xl:col-span-2 rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark overflow-hidden flex flex-col">
+                        <div class="p-5 border-b border-[#283039] flex justify-between items-center">
+                            <h3 class="text-white font-bold text-lg">Minhas Posições</h3>
+                            <button onclick="fetchAssets()"
+                                class="text-primary hover:text-white text-sm">Atualizar</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-[#111418] text-[#9dabb9] uppercase font-bold text-xs">
+                                    <tr>
+                                        <th class="px-6 py-4">Ativo</th>
+                                        <th class="px-6 py-4 text-right">Qtd</th>
+                                        <th class="px-6 py-4 text-right">Preço Médio</th>
+                                        <th class="px-6 py-4 text-right">Preço Atual</th>
+                                        <th class="px-6 py-4 text-right">Total</th>
+                                        <th class="px-6 py-4 text-right">Rentab.</th>
+                                        <th class="px-6 py-4 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="assets-table-body" class="divide-y divide-[#283039]">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-1 flex flex-col gap-6">
+                        <div
+                            class="rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark p-6">
+                            <h3 class="text-white font-bold text-lg mb-4">Alocação</h3>
+                            <div id="allocation-bars" class="space-y-4">
+                            </div>
+                        </div>
+
+                        <div id="ai-result"
+                            class="hidden rounded-xl border border-[#283039] bg-white dark:bg-surface-dark p-6 animate-pulse">
+                            <h3 class="text-white font-bold text-lg mb-2">Análise do Consultor</h3>
+                            <div id="ai-content" class="prose dark:prose-invert prose-sm max-w-none text-gray-300">
+                                Carregando...
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="ai-result"
-                class="hidden rounded-xl bg-white dark:bg-surface-dark border border-[#e5e7eb] dark:border-[#283039] p-6 animate-pulse">
-                <h3 class="font-bold text-lg mb-4">Análise do Consultor</h3>
-                <div id="ai-content" class="prose dark:prose-invert max-w-none text-sm">
-                    Carregando análise inteligente...
-                </div>
             </div>
-
         </main>
     </div>
 
     <div id="addModal"
         class="fixed inset-0 bg-black/80 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
-        <div
-            class="bg-white dark:bg-surface-dark p-6 rounded-2xl w-full max-w-md border border-[#283039] shadow-2xl transform transition-all scale-100">
-            <h2 class="text-xl font-bold mb-4 dark:text-white">Novo Aporte</h2>
+        <div class="bg-[#1c2632] p-6 rounded-2xl w-full max-w-md border border-[#283039] shadow-2xl">
+            <h2 class="text-xl font-bold mb-4 text-white">Adicionar Novo Ativo</h2>
             <form id="addForm" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Ticker</label>
                     <input type="text" id="ticker"
-                        class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none uppercase font-mono"
+                        class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none uppercase"
                         placeholder="Ex: PETR4" required>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Qtd</label>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Quantidade</label>
                         <input type="number" id="amount"
                             class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none"
                             required>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Preço</label>
+                        <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Preço Compra</label>
                         <input type="number" step="0.01" id="price"
                             class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none"
                             required>
@@ -226,25 +267,28 @@
                         <option value="FII">FII</option>
                         <option value="Renda Fixa">Renda Fixa</option>
                         <option value="Cripto">Cripto</option>
+                        <option value="ETF">ETF</option>
                     </select>
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
                         class="flex-1 py-3 rounded-lg font-bold text-gray-400 hover:text-white hover:bg-[#283039]">Cancelar</button>
                     <button type="submit"
-                        class="flex-1 py-3 rounded-lg font-bold bg-primary text-white hover:bg-blue-600 shadow-lg shadow-primary/20">Salvar</button>
+                        class="flex-1 py-3 rounded-lg font-bold bg-primary text-white hover:bg-blue-600">Salvar</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
+        const API_URL = ""; // Relative path
+
         async function fetchAssets() {
             try {
-                const res = await fetch('/assets');
+                const res = await fetch(`${API_URL}/assets`);
                 const data = await res.json();
                 renderDashboard(data);
-            } catch (e) { console.error("Erro loading data", e); }
+            } catch (e) { console.error("Erro ao buscar dados:", e); }
         }
 
         function renderDashboard(assets) {
@@ -255,67 +299,77 @@
             const allocation = {};
 
             assets.forEach(a => {
-                const current = a.quantity * a.current_price;
-                const invested = a.quantity * a.average_price;
-                total += current;
-                totalInvested += invested;
+                // Cálculos
+                const currentTotal = a.quantity * a.current_price;
+                const investedTotal = a.quantity * a.average_price;
+                total += currentTotal;
+                totalInvested += investedTotal;
 
-                // Allocation Logic
-                allocation[a.category] = (allocation[a.category] || 0) + current;
+                // Alocação
+                allocation[a.category] = (allocation[a.category] || 0) + currentTotal;
 
+                // Estilos
                 const profitClass = a.profit_percent >= 0 ? 'text-neon-green' : 'text-neon-red';
                 const profitSign = a.profit_percent >= 0 ? '+' : '';
 
+                // Render Linha
                 const row = `
-                    <tr class="hover:bg-[#f0f2f4] dark:hover:bg-[#202b38] transition-colors group">
-                        <td class="px-6 py-4 font-bold text-[#111418] dark:text-white flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full ${a.profit_percent >= 0 ? 'bg-neon-green' : 'bg-neon-red'}"></span>
-                            ${a.ticker}
-                        </td>
-                        <td class="px-6 py-4 text-right text-[#637588] dark:text-[#9dabb9]">${a.quantity}</td>
-                        <td class="px-6 py-4 text-right text-[#637588] dark:text-[#9dabb9]">R$ ${a.average_price.toFixed(2)}</td>
-                        <td class="px-6 py-4 text-right font-medium dark:text-white">R$ ${a.current_price.toFixed(2)}</td>
-                        <td class="px-6 py-4 text-right font-bold ${profitClass}">${profitSign}${a.profit_percent.toFixed(2)}%</td>
-                        <td class="px-6 py-4 text-center">
-                            <button onclick="deleteAsset(${a.id})" class="text-gray-500 hover:text-neon-red transition-colors material-symbols-outlined text-sm">delete</button>
-                        </td>
-                    </tr>
-                `;
+                <tr class="group hover:bg-[#202b38] transition-colors">
+                    <td class="px-6 py-4 font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full ${a.profit_percent >= 0 ? 'bg-neon-green' : 'bg-neon-red'}"></span>
+                        ${a.ticker}
+                    </td>
+                    <td class="px-6 py-4 text-right text-[#9dabb9]">${a.quantity}</td>
+                    <td class="px-6 py-4 text-right text-[#9dabb9]">R$ ${a.average_price.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right font-medium text-white">R$ ${a.current_price.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right text-white font-bold">R$ ${currentTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td class="px-6 py-4 text-right font-bold ${profitClass}">${profitSign}${a.profit_percent.toFixed(2)}%</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="deleteAsset(${a.id})" class="text-gray-600 hover:text-neon-red transition-colors material-symbols-outlined text-sm">delete</button>
+                    </td>
+                </tr>
+            `;
                 tbody.innerHTML += row;
             });
 
-            // Update Header Totals
+            // Atualiza Totais Header
             document.getElementById('total-balance').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-            // Profit Badge
-            const totalProfit = total - totalInvested;
-            const totalProfitPct = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
+            // Badge de Lucro Total
+            const totalProfitVal = total - totalInvested;
+            const totalProfitPct = totalInvested > 0 ? (totalProfitVal / totalInvested) * 100 : 0;
             const badge = document.getElementById('total-profit-badge');
-            badge.className = `px-3 py-1 rounded-md text-sm font-bold flex items-center gap-1 ${totalProfit >= 0 ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`;
-            badge.innerText = `${totalProfit >= 0 ? '▲' : '▼'} ${totalProfitPct.toFixed(2)}%`;
 
-            // Update Allocation Bars
+            badge.className = `px-2 py-0.5 rounded text-xs font-bold ${totalProfitVal >= 0 ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'}`;
+            badge.innerText = `${totalProfitVal >= 0 ? '▲' : '▼'} ${totalProfitPct.toFixed(2)}%`;
+
+            // Render Barras de Alocação
             const allocDiv = document.getElementById('allocation-bars');
             allocDiv.innerHTML = '';
-            Object.keys(allocation).forEach(cat => {
-                const pct = (allocation[cat] / total) * 100;
+            const colors = ['bg-primary', 'bg-purple-500', 'bg-orange-500', 'bg-teal-500', 'bg-pink-500'];
+            let colorIdx = 0;
+
+            for (const [cat, val] of Object.entries(allocation)) {
+                const pct = (val / total) * 100;
+                const color = colors[colorIdx % colors.length];
                 allocDiv.innerHTML += `
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-gray-400 font-bold uppercase">${cat}</span>
-                            <span class="text-white">${pct.toFixed(1)}%</span>
-                        </div>
-                        <div class="w-full bg-[#111418] rounded-full h-2">
-                            <div class="bg-primary h-2 rounded-full" style="width: ${pct}%"></div>
-                        </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-400 font-bold uppercase">${cat}</span>
+                        <span class="text-white">${pct.toFixed(1)}%</span>
                     </div>
-                `;
-            });
+                    <div class="w-full bg-[#111418] rounded-full h-2">
+                        <div class="${color} h-2 rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+            `;
+                colorIdx++;
+            }
         }
 
         async function deleteAsset(id) {
-            if (!confirm('Remover ativo?')) return;
-            await fetch(`/assets/${id}`, { method: 'DELETE' });
+            if (!confirm('Tem certeza que deseja excluir este ativo?')) return;
+            await fetch(`${API_URL}/assets/${id}`, { method: 'DELETE' });
             fetchAssets();
         }
 
@@ -327,12 +381,15 @@
                 price: document.getElementById('price').value,
                 category: document.getElementById('category').value
             };
-            await fetch('/add-asset', {
+
+            await fetch(`${API_URL}/add-asset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
+
             document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addForm').reset();
             fetchAssets();
         });
 
@@ -341,17 +398,21 @@
             resDiv.classList.remove('hidden');
             document.getElementById('ai-content').innerText = "Analisando mercado e sua carteira...";
 
-            const res = await fetch('/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: 'demo' })
-            });
-            const data = await res.json();
-            resDiv.classList.remove('animate-pulse');
-            document.getElementById('ai-content').innerHTML = data.ai_analysis;
+            try {
+                const res = await fetch(`${API_URL}/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: 'demo' })
+                });
+                const data = await res.json();
+                resDiv.classList.remove('animate-pulse');
+                document.getElementById('ai-content').innerHTML = data.ai_analysis;
+            } catch (e) {
+                document.getElementById('ai-content').innerText = "Erro ao conectar com a IA.";
+            }
         }
 
-        // Init
+        // Inicializar
         fetchAssets();
     </script>
 </body>
