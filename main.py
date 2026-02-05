@@ -1,12 +1,11 @@
-# FORCE UPDATE V7 - SMART LIVE MODE (COM FILTRO ANTI-CRASH)
+# FORCE UPDATE V8 - SURGICAL MODE (FAST INFO + DEBUG LOGS)
 import os
 import requests
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
-import yfinance as yf # A biblioteca volta, mas controlada!
+import yfinance as yf
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,13 +16,10 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# --- CONEXÃO BANCO (MANTIDA IGUAL - VIA REQUESTS) ---
+# --- CONEXÃO BANCO (MANTIDA) ---
 def supabase_fetch(endpoint, method="GET", params=None, json_body=None):
     if not SUPABASE_URL or not SUPABASE_KEY: return None
-    # Garante URL correta removendo barras extras
-    base = SUPABASE_URL.rstrip('/')
-    url = f"{base}/rest/v1/{endpoint}"
-    
+    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{endpoint}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -32,75 +28,67 @@ def supabase_fetch(endpoint, method="GET", params=None, json_body=None):
     }
     try:
         resp = requests.request(method, url, headers=headers, params=params, json=json_body)
-        # Sucesso (200-299)
         if resp.status_code < 300: 
             return resp.json() if method != "DELETE" else None
         return []
-    except: return []
+    except Exception as e:
+        print(f"Erro Supabase: {e}")
+        return []
 
-# --- PREÇOS INTELIGENTES (O SEGREDO ANTI-CRASH) ---
+# --- PREÇOS CIRÚRGICOS (V8) ---
 def update_prices(assets):
+    print("\n--- DEBUG: INICIANDO ATUALIZACAO V8 ---")
     if not assets: return {}
     
-    tickers_map = {}
-    tickers_to_fetch = []
+    live_prices = {}
     
-    # 1. LISTA NEGRA: Tickers que sabemos que travam o Yahoo ou não existem lá
+    # Lista de Ignorados (Renda Fixa manual)
     BLOCKLIST = ['SELIC', 'CDI', 'TESOURO', 'POUPANCA', 'LCI', 'LCA', 'CDB']
 
     for item in assets:
-        raw_ticker = str(item.get('ticker', '')).upper().strip()
-        if not raw_ticker: continue
+        original_ticker = str(item.get('ticker', '')).upper().strip()
+        if not original_ticker: continue
         
-        # 2. Se for proibido, ignora silenciosamente
-        if any(bad in raw_ticker for bad in BLOCKLIST):
+        # Pula Renda Fixa
+        if any(bad in original_ticker for bad in BLOCKLIST):
+            print(f"DEBUG: Ignorando {original_ticker} (Renda Fixa)")
             continue
 
-        # 3. Formata para o Yahoo (Adiciona .SA se for ação BR padrão)
-        # Lógica: Se não tem ponto, tem menos de 6 letras e não é Cripto (USD), deve ser B3.
-        if not "." in raw_ticker and len(raw_ticker) <= 6 and not "USD" in raw_ticker:
-            yahoo_ticker = f"{raw_ticker}.SA"
+        # Formata para Yahoo (Ex: PETR4 -> PETR4.SA)
+        if "." not in original_ticker and len(original_ticker) <= 6 and "USD" not in original_ticker:
+            yahoo_ticker = f"{original_ticker}.SA"
         else:
-            yahoo_ticker = raw_ticker
+            yahoo_ticker = original_ticker
             
-        tickers_map[yahoo_ticker] = raw_ticker
-        tickers_to_fetch.append(yahoo_ticker)
-    
-    if not tickers_to_fetch: return {}
+        try:
+            # MÉTODO NOVO: FAST INFO (Mais rápido e robusto que download)
+            ticker_obj = yf.Ticker(yahoo_ticker)
+            
+            # Tenta pegar preço atual ou último fechamento
+            price = None
+            
+            # Tenta fast_info (Endpoint 1)
+            try:
+                price = ticker_obj.fast_info.last_price
+            except: pass
+            
+            # Fallback para history (Endpoint 2 - se o 1 falhar)
+            if not price:
+                hist = ticker_obj.history(period="1d")
+                if not hist.empty:
+                    price = hist['Close'].iloc[-1]
 
-    try:
-        # 4. Busca em Lote (Batch Download)
-        # 'threads=False' é crucial para estabilidade em servidores python pequenos
-        data = yf.download(tickers_to_fetch, period="1d", progress=False, threads=False)
-        
-        current_prices = {}
-        
-        # Lógica de extração segura do Pandas DataFrame (Multi-index vs Single-index)
-        if data is not None and not data.empty:
-            # Caso A: Apenas um ativo solicitado
-            if len(tickers_to_fetch) == 1:
-                t = tickers_to_fetch[0]
-                try:
-                    # Tenta pegar o último 'Close' disponível
-                    val = data['Close'].iloc[-1]
-                    # Converte de numpy para float nativo do Python
-                    current_prices[tickers_map[t]] = float(val.item())
-                except: pass
-            
-            # Caso B: Vários ativos
+            if price and float(price) > 0:
+                live_prices[original_ticker] = float(price)
+                print(f"DEBUG: Sucesso {original_ticker} ({yahoo_ticker}) -> R$ {price:.2f}")
             else:
-                for yt in tickers_to_fetch:
-                    try:
-                        if yt in data['Close']:
-                            val = data['Close'][yt].iloc[-1]
-                            current_prices[tickers_map[yt]] = float(val.item())
-                    except: pass
-                    
-        return current_prices
+                print(f"DEBUG: Falha {original_ticker} ({yahoo_ticker}) -> Preço vazio ou zero.")
+                
+        except Exception as e:
+            print(f"DEBUG: Erro ao baixar {original_ticker}: {e}")
 
-    except Exception as e:
-        print(f"Erro Yahoo Finance (Sistema continua rodando): {e}")
-        return {} # Retorna vazio, o site usa o preço de compra como fallback
+    print("--- DEBUG: FIM DA ATUALIZACAO ---\n")
+    return live_prices
 
 # --- ROTAS ---
 @app.get("/")
@@ -111,31 +99,28 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/assets")
 def get_assets():
-    # ID fixo do usuário (Hardcoded para MVP)
+    # ID fixo
     user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
     
-    # 1. Busca Carteira no Banco
+    # 1. Busca Carteira
     assets = supabase_fetch("portfolios", params={"select": "*", "user_id": f"eq.{user_id}"})
-    
     if not assets: return []
     
-    # 2. Busca Preços Online (Smart Mode)
+    # 2. Busca Preços (V8)
     live_prices = update_prices(assets)
     
-    # 3. Mescla os dados
+    # 3. Processa
     for a in assets:
         ticker = a.get('ticker')
-        # Garante que seja float
         raw_avg = a.get('average_price')
         avg = float(raw_avg) if raw_avg is not None else 0.0
         
-        # Se achou preço online, usa. Se não (ex: SELIC), usa o preço de compra.
+        # Se achou preço live, usa. Se não, usa o médio.
         curr = live_prices.get(ticker, avg)
         
         a['average_price'] = avg
         a['current_price'] = curr
         
-        # Calcula rentabilidade
         if avg > 0:
             a['profit_percent'] = ((curr - avg) / avg) * 100
         else:
@@ -145,7 +130,6 @@ def get_assets():
 
 @app.post("/add-asset")
 def add_asset(item: dict):
-    # Endpoint recebe JSON direto do frontend
     data = {
         "user_id": 'a114b418-ec3c-407e-a2f2-06c3c453b684',
         "ticker": str(item.get("ticker", "")).upper(),
@@ -165,41 +149,35 @@ def delete_asset(asset_id: int):
 def analyze(req: dict):
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
-        
-        # Recupera carteira atualizada (com preços live) para contexto da IA
         assets = get_assets()
         
-        # Monta um resumo de texto para a IA ler
-        resumo_texto = ""
-        total_val = 0
+        # Resumo detalhado para a IA
+        resumo = ""
+        total_patrimonio = 0
         for a in assets:
-            total = a['quantity'] * a['current_price']
-            total_val += total
-            resumo_texto += f"- {a['ticker']} ({a['category']}): {a['quantity']} un. @ R$ {a['current_price']:.2f} (Rentab: {a['profit_percent']:.2f}%)\n"
-            
+            val = a['quantity'] * a['current_price']
+            total_patrimonio += val
+            resumo += f"- {a['ticker']} ({a['category']}): {a['quantity']} un. Pago R$ {a['average_price']:.2f}, Hoje R$ {a['current_price']:.2f} (Lucro: {a['profit_percent']:.2f}%)\n"
+
         prompt = (
-            f"Atue como Advisor Financeiro Sênior de Wealth Management.\n"
-            f"Analise esta carteira (Valor Total: R$ {total_val:.2f}):\n{resumo_texto}\n"
-            "Gere uma resposta EXCLUSIVAMENTE em HTML (sem tags html/body/head, apenas divs e conteúdo) contendo:\n"
-            "1. Um <h3>Risco da Carteira</h3> (análise crítica de concentração).\n"
-            "2. Um <h3>Oportunidades</h3> (o que está performando bem).\n"
-            "3. Um <h3>Rebalanceamento</h3> (sugestões práticas de compra/venda).\n"
-            "Use classes CSS do Tailwind se quiser, mas mantenha o HTML limpo."
+            f"Analise esta carteira de R$ {total_patrimonio:.2f} como um Wealth Advisor Sênior.\n"
+            f"Dados:\n{resumo}\n"
+            "Gere HTML puro (sem markdown ```html) com 3 seções curtas e diretas:\n"
+            "1. <h3>Diagnóstico de Risco</h3>\n"
+            "2. <h3>Destaques de Performance</h3> (Cite quem lucrou mais)\n"
+            "3. <h3>Ação Recomendada</h3> (Comprar/Vender/Manter)"
         )
         
-        # Tenta modelos em ordem de inteligência
-        modelos = ['gemini-2.0-flash', 'gemini-1.5-flash']
-        for m in modelos:
+        # Tenta modelos
+        for m in ['gemini-2.0-flash', 'gemini-1.5-flash']:
             try:
                 model = genai.GenerativeModel(m)
-                response = model.generate_content(prompt)
-                return {"ai_analysis": response.text}
+                return {"ai_analysis": model.generate_content(prompt).text}
             except: continue
-            
-        return {"ai_analysis": "<p>IA temporariamente indisponível.</p>"}
+        return {"ai_analysis": "IA indisponível."}
         
     except Exception as e:
-        return {"ai_analysis": f"<p>Erro na análise: {str(e)}</p>"}
+        return {"ai_analysis": f"Erro IA: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
