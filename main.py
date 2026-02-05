@@ -41,6 +41,7 @@ def update_prices(assets_data):
     """
     Recebe a lista de ativos do Supabase, busca preços no Yahoo Finance
     e retorna um dicionário {ticker: current_price}.
+    BLINDAGEM: Se falhar, retorna vazio (o frontend usa preço médio).
     """
     if not assets_data:
         return {}
@@ -48,16 +49,25 @@ def update_prices(assets_data):
     # 1. Identificar Tickers (adicionar .SA se for necessário para B3)
     tickers_map = {} # {ticker_yahoo: ticker_original}
     tickers_to_fetch = []
+    
+    # Lista de ignorados (exóticos que travam o YFinance)
+    IGNORE_KEYWORDS = ['SELIC', 'CDI', 'TESOURO', 'POUPANÇA', 'VISTA']
 
     for item in assets_data:
         original = item['ticker']
+        upper_ticker = original.upper()
+        
+        # A. Checagem de Segurança: Pula ativos exóticos
+        if any(keyword in upper_ticker for keyword in IGNORE_KEYWORDS):
+            continue
+
         # Lógica simples: Se não tem ponto e parece ação BR (geralmente 5/6 chars), tenta .SA
         # Mas vamos forçar tentativa.
         # Se for Cripto (BTC, ETH), o yfinance geralmente precisa de sufixo -USD ou -BRL (ex: BTC-USD)
         # Assumindo que o usuário digite "PETR4" -> "PETR4.SA"
         
         yahoo_ticker = original
-        if "category" in item:
+        if "category" in item and item['category']:
             cat = item['category'].lower()
             if "cripto" in cat:
                 if not "-" in original: yahoo_ticker = f"{original}-USD"
@@ -68,37 +78,52 @@ def update_prices(assets_data):
         tickers_map[yahoo_ticker] = original
         tickers_to_fetch.append(yahoo_ticker)
 
+    if not tickers_to_fetch:
+        return {}
+
     # 2. Buscar no Yahoo Finance (Batch)
     try:
         # download returns a DataFrame
         # period='1d' is enough for latest price
-        data = yf.download(tickers_to_fetch, period="1d", progress=False)
+        # threads=False para evitar conflitos em alguns ambientes
+        data = yf.download(tickers_to_fetch, period="1d", progress=False, threads=False)
         
         current_prices = {}
         
-        # Se for apenas 1 ticker, a estrutura do DF é diferente
+        # Se veio vazio ou deu erro
+        if data.empty:
+             return {}
+
+        # Se for apenas 1 ticker, a estrutura do DF é diferente (Series ou DataFrame simples)
         if len(tickers_to_fetch) == 1:
             ticker = tickers_to_fetch[0]
             try:
-                # Pega o último 'Close' disponível
-                price = data['Close'].iloc[-1].item() # .item() converts numpy to native python
-                current_prices[tickers_map[ticker]] = price
+                # Tenta pegar 'Close', se falhar ('Adj Close' ou outro), ignora
+                if 'Close' in data.columns:
+                     # Pega o último válido
+                    price = data['Close'].iloc[-1].item() 
+                    current_prices[tickers_map[ticker]] = price
             except:
                 pass
         else:
             # Multi-index columns: ('Close', 'PETR4.SA')
+            # Às vezes o download falha parcialmente. Iteramos o que foi pedido.
             for yahoo_ticker in tickers_to_fetch:
                 try:
-                    price = data['Close'][yahoo_ticker].iloc[-1].item()
-                    current_prices[tickers_map[yahoo_ticker]] = price
+                    if yahoo_ticker in data['Close']:
+                        series = data['Close'][yahoo_ticker]
+                        # Remove NaNs
+                        last_valid = series.dropna().iloc[-1]
+                        price = last_valid.item()
+                        current_prices[tickers_map[yahoo_ticker]] = price
                 except:
-                    # Fallback logic could go here
+                    # Fallback logic check next
                     pass
         
         return current_prices
 
     except Exception as e:
-        print(f"Erro no YFinance: {e}")
+        print(f"Erro no YFinance (Ignorado para não travar API): {e}")
         return {}
 
 # 3. Rota de Cadastro de Ativos
