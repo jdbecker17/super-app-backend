@@ -83,11 +83,14 @@ def get_gemini_response(prompt_text):
     # Lista de prioridade (Flash é mais rápido/barato, Pro é backup)
     # Tenta nomes com e sem prefixo 'models/' se necessário, mas geralmente o lib resolve.
     models_priority = [
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-flash-latest',
+        'models/gemini-2.0-flash', 
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-pro',
         'gemini-1.0-pro',
-        'models/gemini-1.5-flash' # Tentativa explícita
     ]
 
     errors = []
