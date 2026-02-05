@@ -1,3 +1,4 @@
+
 import os
 import requests
 import google.generativeai as genai
@@ -5,19 +6,27 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from supabase import create_client, Client
-
-import time
-
 import yfinance as yf
+from dotenv import load_dotenv
+
+# ==========================================
+# CONFIGURAÇÃO E CONSTANTES
+# ==========================================
+load_dotenv()
 
 app = FastAPI()
 
-# 1. Configuração de Chaves
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# Verifica chaves críticas na inicialização
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("CRITICAL WARNING: SUPABASE_URL or SUPABASE_KEY not set!")
+
+# ==========================================
+# MODELS
+# ==========================================
 class AnalysisRequest(BaseModel):
     user_id: str
 
@@ -27,50 +36,84 @@ class AssetRequest(BaseModel):
     price: float
     category: str
 
-# 2. Rota para entregar o Site (Frontend)
+# ==========================================
+# FRONTEND ROUTING
+# ==========================================
 @app.get("/")
 def read_root():
-    # Retorna o arquivo HTML que criamos na pasta static
     return FileResponse('static/index.html')
 
-# Monta a pasta static para permitir arquivos futuros (CSS/JS externos)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Helper: Atualizador de Preços (Yahoo Finance)
+# ==========================================
+# HELPERS
+# ==========================================
+
+def supabase_fetch(endpoint: str, method="GET", params=None, json_body=None):
+    """
+    Realiza chamadas HTTP diretas à API REST do Supabase.
+    Substitui o cliente oficial que estava falhando (pyroaring error).
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise Exception("Supabase credentials missing")
+
+    # Garante que a URL base termine sem barra e o endpoint comece com barra
+    base_url = SUPABASE_URL.rstrip('/') + "/rest/v1"
+    url = f"{base_url}/{endpoint.lstrip('/')}"
+    
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation" # Importante para receber o dado criado/deletado de volta
+    }
+
+    try:
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            params=params,
+            json=json_body
+        )
+        response.raise_for_status()
+        
+        # Para DELETE ou POST com return=representation, o supabase retorna o objeto.
+        # Se for lista vazia ou 204 No Content, lida adequadamente.
+        if response.status_code == 204:
+            return None
+            
+        return response.json()
+    except requests.exceptions.HTTPError as e:
+        print(f"Supabase HTTP Error: {e.response.text}")
+        raise e
+    except Exception as e:
+        print(f"Supabase Generic Error: {str(e)}")
+        raise e
+
 def update_prices(assets_data):
     """
-    Recebe a lista de ativos do Supabase, busca preços no Yahoo Finance
-    e retorna um dicionário {ticker: current_price}.
-    BLINDAGEM TOTAL: Qualquer erro aqui retorna dicionário vazio.
+    Fetches live prices from Yahoo Finance.
+    Returns {ticker: current_price}.
     """
     try:
         if not assets_data:
             return {}
 
-        # 1. Identificar Tickers (adicionar .SA se for necessário para B3)
-        tickers_map = {} # {ticker_yahoo: ticker_original}
+        tickers_map = {}
         tickers_to_fetch = []
-        
-        # Lista de ignorados (exóticos que travam o YFinance)
         IGNORE_KEYWORDS = ['SELIC', 'CDI', 'TESOURO', 'POUPANÇA', 'VISTA']
 
         for item in assets_data:
-            # Segurança contra None
             if not item: continue
-            
             original = item.get('ticker')
             if not original: continue
             
             upper_ticker = str(original).upper()
-            
-            # A. Checagem de Segurança: Pula ativos exóticos
             if any(keyword in upper_ticker for keyword in IGNORE_KEYWORDS):
                 continue
 
-            # Lógica simples: Se não tem ponto e parece ação BR (geralmente 5/6 chars), tenta .SA
             yahoo_ticker = original
-            
-            # Safe access to category
             category = item.get('category')
             if category:
                 cat = str(category).lower()
@@ -86,58 +129,105 @@ def update_prices(assets_data):
         if not tickers_to_fetch:
             return {}
 
-        # 2. Buscar no Yahoo Finance (Batch)
-        # download returns a DataFrame
-        # period='1d' is enough for latest price
-        # threads=False para evitar conflitos em alguns ambientes
+        # Fetch data
         data = yf.download(tickers_to_fetch, period="1d", progress=False, threads=False)
         
         current_prices = {}
-        
-        # Se veio vazio ou deu erro
         if data is None or data.empty:
              return {}
 
-        # Se for apenas 1 ticker, a estrutura do DF é diferente (Series ou DataFrame simples)
+        # Single ticker case
         if len(tickers_to_fetch) == 1:
             ticker = tickers_to_fetch[0]
             try:
-                # Tenta pegar 'Close', se falhar ('Adj Close' ou outro), ignora
                 if 'Close' in data.columns:
-                     # Pega o último válido
                     price = data['Close'].iloc[-1].item() 
                     current_prices[tickers_map[ticker]] = price
-            except:
-                pass
+            except: pass
         else:
-            # Multi-index columns: ('Close', 'PETR4.SA')
-            # Às vezes o download falha parcialmente. Iteramos o que foi pedido.
+            # Multi-index
             for yahoo_ticker in tickers_to_fetch:
                 try:
-                    # Verifica se existe coluna Close
                     if 'Close' in data and yahoo_ticker in data['Close']:
                         series = data['Close'][yahoo_ticker]
-                        # Remove NaNs
                         last_valid = series.dropna().iloc[-1]
                         price = last_valid.item()
                         current_prices[tickers_map[yahoo_ticker]] = price
-                except:
-                    # Fallback logic check next
-                    pass
+                except: pass
         
         return current_prices
 
     except Exception as e:
-        print(f"Erro CRÍTICO no YFinance (Ignorado): {e}")
-        # Retorna vazio para que o front use o preço médio
+        print(f"Error fetching prices: {e}")
         return {}
 
-# 3. Rota de Cadastro de Ativos
+def get_gemini_response(prompt_text):
+    genai.configure(api_key=GOOGLE_API_KEY)
+    models_priority = [
+        'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro'
+    ]
+    
+    errors = []
+    for model_name in models_priority:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt_text)
+            if response.text:
+                return response.text
+        except Exception as e:
+            errors.append(str(e))
+            continue
+            
+    # Fallback message
+    return f"Não foi possível gerar análise. Detalhes: {'; '.join(errors)}"
+
+# ==========================================
+# ENDPOINTS
+# ==========================================
+
+@app.get("/assets")
+def get_assets():
+    try:
+        user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
+        
+        # REST API Call: GET /portfolios?select=*&user_id=eq.{user_id}
+        assets = supabase_fetch(
+            endpoint="portfolios",
+            method="GET",
+            params={"select": "*", "user_id": f"eq.{user_id}"}
+        )
+        
+        # Live Data Enrichment
+        live_prices = update_prices(assets)
+
+        # Logic Enrichment
+        for asset in assets:
+            try:
+                ticker = asset.get('ticker')
+                avg_price_raw = asset.get('average_price')
+                avg_price = float(avg_price_raw) if avg_price_raw is not None else 0.0
+                asset['average_price'] = avg_price
+
+                current_price = live_prices.get(ticker, avg_price)
+                if current_price is None: current_price = avg_price
+                asset['current_price'] = current_price
+                
+                if avg_price > 0:
+                    asset['profit_percent'] = ((current_price - avg_price) / avg_price) * 100
+                else:
+                    asset['profit_percent'] = 0.0
+            except:
+                asset['current_price'] = asset.get('average_price', 0)
+                asset['profit_percent'] = 0.0
+
+        return assets
+    except Exception as e:
+        print(f"Fatal GET /assets: {e}") 
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/add-asset")
 def add_asset(asset: AssetRequest):
     try:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        # ID fixo solicitado
         user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
         
         data = {
@@ -148,162 +238,70 @@ def add_asset(asset: AssetRequest):
             "category": asset.category
         }
         
-        supabase.table("portfolios").insert(data).execute()
+        # REST API Call: POST /portfolios
+        supabase_fetch(
+            endpoint="portfolios",
+            method="POST",
+            json_body=data
+        )
+        
         return {"message": "Ativo cadastrado com sucesso!"}
     except Exception as e:
+        print(f"Fatal POST /add-asset: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# 3.1 Rota de Listagem de Ativos (GET) - COM LIVE DATA
-@app.get("/assets")
-def get_assets():
-    try:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        user_id = 'a114b418-ec3c-407e-a2f2-06c3c453b684'
-        response = supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
-        assets = response.data
-
-        # Busca Preços Atualizados (Blindado)
-        live_prices = update_prices(assets)
-
-        # Enriquece os dados (Defensivo)
-        for asset in assets:
-            try:
-                ticker = asset.get('ticker')
-                
-                # Garante que average_price seja float
-                avg_price_raw = asset.get('average_price')
-                avg_price = float(avg_price_raw) if avg_price_raw is not None else 0.0
-                asset['average_price'] = avg_price # Atualiza no dict para o frontend não sofrer
-
-                # Se achou preço, usa. Senão, usa o preço médio como fallback
-                # live_prices pode estar vazio se a API falhou
-                current_price = live_prices.get(ticker, avg_price)
-                
-                # Garante current_price float
-                if current_price is None: current_price = avg_price
-                
-                asset['current_price'] = current_price
-                
-                if avg_price > 0:
-                    asset['profit_percent'] = ((current_price - avg_price) / avg_price) * 100
-                else:
-                    asset['profit_percent'] = 0.0
-            except Exception as item_error:
-                print(f"Erro processando item {asset}: {item_error}")
-                # Fallback seguro para esse item
-                asset['current_price'] = asset.get('average_price', 0)
-                asset['profit_percent'] = 0.0
-
-        return assets
-    except Exception as e:
-        print(f"Erro FATAL GET /assets: {e}") 
-        raise HTTPException(status_code=500, detail=str(e))
-
-# 3.2 Rota de Exclusão de Ativos (DELETE)
 @app.delete("/assets/{asset_id}")
 def delete_asset(asset_id: int):
     try:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        # Verifica se o ativo pertence ao usuário (seria ideal, mas por enquanto simplificamos deletando pelo ID)
-        response = supabase.table("portfolios").delete().eq("id", asset_id).execute()
+        # REST API Call: DELETE /portfolios?id=eq.{asset_id}
+        supabase_fetch(
+            endpoint="portfolios",
+            method="DELETE",
+            params={"id": f"eq.{asset_id}"}
+        )
         return {"message": "Ativo deletado com sucesso!"}
     except Exception as e:
+        print(f"Fatal DELETE /assets: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# 4. Rota de Análise (Backend + IA)
-# Helper: Lógica de Fallback de Modelos
-def get_gemini_response(prompt_text):
-    genai.configure(api_key=GOOGLE_API_KEY)
-    
-    # Lista de prioridade (Flash é mais rápido/barato, Pro é backup)
-    # Tenta nomes com e sem prefixo 'models/' se necessário, mas geralmente o lib resolve.
-    models_priority = [
-        'gemini-2.0-flash',
-        'gemini-2.0-flash-lite',
-        'gemini-flash-latest',
-        'models/gemini-2.0-flash', 
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-pro',
-        'gemini-1.0-pro',
-    ]
-
-    errors = []
-
-    for model_name in models_priority:
-        try:
-            print(f"Tentando modelo: {model_name}...")
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt_text)
-            
-            if response.text:
-                return response.text
-        except Exception as e:
-            print(f"Erro no {model_name}: {str(e)}")
-            errors.append(f"{model_name}: {str(e)}")
-            continue # Tenta o próximo
-    
-    # Se chegou aqui, todos falharam. Tenta listar o que EXISTE.
-    try:
-        available_models = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                available_models.append(m.name)
-        
-        available_str = ", ".join(available_models)
-        raise Exception(f"Falha em todos os modelos. ERRO 404 pode indicar chave sem permissão ou nome errado. Modelos DISPONÍVEIS na sua chave: [{available_str}]. Detalhes técnicos: {'; '.join(errors)}")
-    except Exception as list_error:
-         raise Exception(f"Falha total e falha ao listar modelos ({str(list_error)}). Detalhes: {'; '.join(errors)}")
-
-# 4. Rota de Análise (Backend + IA)
 @app.post("/analyze")
 def analyze_portfolio(request: AnalysisRequest):
     if not all([SUPABASE_URL, SUPABASE_KEY, GOOGLE_API_KEY]):
-        raise HTTPException(status_code=500, detail="Erro: Chaves de API ausentes.")
+        raise HTTPException(status_code=500, detail="Chaves de API ausentes.")
 
     try:
-        # A. Busca dados usando a nossa própria função interna (para já pegar os Live Prices!)
-        # Pequeno hack: chamamos a lógica da get_assets internamente
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
-        assets = response.data
+        # Re-use logic (internal call approach)
+        # Fetch directly from Supabase via REST
+        assets = supabase_fetch(
+            endpoint="portfolios",
+            method="GET",
+            params={"select": "*", "user_id": f"eq.{request.user_id}"}
+        )
         
         if not assets:
-            return {"ai_analysis": "Carteira vazia. Adicione ativos para análise."}
-            
-        # Busca preços para enriquecer o prompt
+            return {"ai_analysis": "Carteira vazia."}
+        
         live_prices = update_prices(assets)
-
-        # B. Monta os dados para o Prompt com Rentabilidade
+        
         portfolio_summary = []
         for item in assets:
-            try:
-                # Segurança tipos
-                raw_avg = item.get('average_price')
-                avg_price = float(raw_avg) if raw_avg is not None else 0.0
-                
-                # Preço atual (fallback seguro)
-                ticker = item.get('ticker', 'UNKNOWN')
-                cur_price = live_prices.get(ticker, avg_price)
-                if cur_price is None: cur_price = avg_price
-                
-                profit = 0.0
-                if avg_price > 0:
-                    profit = ((cur_price - avg_price) / avg_price) * 100
-                
-                portfolio_summary.append(
-                    f"- {ticker} ({item.get('category', 'Ativo')}): "
-                    f"{item.get('quantity', 0)} cotas. "
-                    f"Comprado a R$ {avg_price:.2f}, Hoje vale R$ {cur_price:.2f}. "
-                    f"Resultado: {profit:+.2f}%"
-                )
-            except Exception as e:
-                # Pula item defeituoso no prompt
-                continue
-        
-        portfolio_text = "\n".join(portfolio_summary)
+            # Safe parsing
+            ticker = item.get('ticker', 'UNKNOWN')
+            raw_avg = item.get('average_price', 0)
+            avg = float(raw_avg) if raw_avg is not None else 0.0
+            
+            curr = live_prices.get(ticker, avg)
+            
+            profit = 0.0
+            if avg > 0: profit = ((curr - avg) / avg) * 100
+            
+            portfolio_summary.append(
+                f"- {ticker} ({item.get('category')}): {item.get('quantity')} un. "
+                f"Médio: R$ {avg:.2f}, Atual: R$ {curr:.2f} ({profit:+.2f}%)"
+            )
 
-        # C. Prompt de Consultor de Elite
+        portfolio_text = "\n".join(portfolio_summary)
+        
         prompt = (
             f"Atue como um Consultor de Elite de Wealth Management. "
             f"Analise esta carteira de investimentos (Dados ATUALIZADOS de mercado):\n{portfolio_text}\n\n"
@@ -314,11 +312,9 @@ def analyze_portfolio(request: AnalysisRequest):
             f"3. <h3>Sugestão de Rebalanceamento</h3> (O que comprar/vender?)\n"
             f"Seja direto e profissional."
         )
-
-        # D. Chama a IA com Fallback
-        ai_analysis = get_gemini_response(prompt)
         
-        return {"ai_analysis": ai_analysis}
+        analysis = get_gemini_response(prompt)
+        return {"ai_analysis": analysis}
 
     except Exception as e:
         return {"erro_fatal": str(e)}
