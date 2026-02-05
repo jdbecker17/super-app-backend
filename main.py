@@ -81,10 +81,13 @@ def get_gemini_response(prompt_text):
     genai.configure(api_key=GOOGLE_API_KEY)
     
     # Lista de prioridade (Flash é mais rápido/barato, Pro é backup)
+    # Tenta nomes com e sem prefixo 'models/' se necessário, mas geralmente o lib resolve.
     models_priority = [
         'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
         'gemini-pro',
-        'gemini-1.0-pro'
+        'gemini-1.0-pro',
+        'models/gemini-1.5-flash' # Tentativa explícita
     ]
 
     errors = []
@@ -102,8 +105,17 @@ def get_gemini_response(prompt_text):
             errors.append(f"{model_name}: {str(e)}")
             continue # Tenta o próximo
     
-    # Se chegou aqui, todos falharam
-    raise Exception(f"Falha em todos os modelos de IA. Detalhes: {'; '.join(errors)}")
+    # Se chegou aqui, todos falharam. Tenta listar o que EXISTE.
+    try:
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+        
+        available_str = ", ".join(available_models)
+        raise Exception(f"Falha em todos os modelos. ERRO 404 pode indicar chave sem permissão ou nome errado. Modelos DISPONÍVEIS na sua chave: [{available_str}]. Detalhes técnicos: {'; '.join(errors)}")
+    except Exception as list_error:
+         raise Exception(f"Falha total e falha ao listar modelos ({str(list_error)}). Detalhes: {'; '.join(errors)}")
 
 # 4. Rota de Análise (Backend + IA)
 @app.post("/analyze")
