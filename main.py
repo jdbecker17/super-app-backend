@@ -23,6 +23,7 @@ class AssetRequest(BaseModel):
     ticker: str
     amount: int
     price: float
+    category: str
 
 # 2. Rota para entregar o Site (Frontend)
 @app.get("/")
@@ -45,7 +46,8 @@ def add_asset(asset: AssetRequest):
             "user_id": user_id,
             "ticker": asset.ticker.upper(),
             "quantity": asset.amount,
-            "average_price": asset.price
+            "average_price": asset.price,
+            "category": asset.category
         }
         
         supabase.table("portfolios").insert(data).execute()
