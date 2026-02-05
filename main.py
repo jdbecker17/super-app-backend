@@ -76,6 +76,36 @@ def delete_asset(asset_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 # 4. Rota de Análise (Backend + IA)
+# Helper: Lógica de Fallback de Modelos
+def get_gemini_response(prompt_text):
+    genai.configure(api_key=GOOGLE_API_KEY)
+    
+    # Lista de prioridade (Flash é mais rápido/barato, Pro é backup)
+    models_priority = [
+        'gemini-1.5-flash',
+        'gemini-pro',
+        'gemini-1.0-pro'
+    ]
+
+    errors = []
+
+    for model_name in models_priority:
+        try:
+            print(f"Tentando modelo: {model_name}...")
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt_text)
+            
+            if response.text:
+                return response.text
+        except Exception as e:
+            print(f"Erro no {model_name}: {str(e)}")
+            errors.append(f"{model_name}: {str(e)}")
+            continue # Tenta o próximo
+    
+    # Se chegou aqui, todos falharam
+    raise Exception(f"Falha em todos os modelos de IA. Detalhes: {'; '.join(errors)}")
+
+# 4. Rota de Análise (Backend + IA)
 @app.post("/analyze")
 def analyze_portfolio(request: AnalysisRequest):
     if not all([SUPABASE_URL, SUPABASE_KEY, GOOGLE_API_KEY]):
@@ -85,72 +115,37 @@ def analyze_portfolio(request: AnalysisRequest):
         # A. Busca dados no Banco (Supabase)
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
         portfolio_response = supabase.table("portfolios").select("*").eq("user_id", request.user_id).execute()
-        profile_response = supabase.table("profiles").select("*").eq("id", request.user_id).execute()
         
         if not portfolio_response.data:
-            return {"ai_analysis": "Carteira não encontrada no banco de dados."}
+            return {"ai_analysis": "Carteira vazia. Adicione ativos para análise."}
 
-        # B. Modelo Hardcoded (Teste Diagnóstico)
-        modelo_escolhido = "models/gemini-1.5-flash"
+        # B. Monta os dados para o Prompt
+        # Formata bonitinho para a IA entender melhor
+        portfolio_summary = []
+        for item in portfolio_response.data:
+            portfolio_summary.append(f"- {item['ticker']}: {item['quantity']} cotas a R$ {item['average_price']}")
+        
+        portfolio_text = "\n".join(portfolio_summary)
 
-        # C. Envia para a IA com Retry
-        url = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={GOOGLE_API_KEY}"
-        
-        # Prepara o prompt financeiro profissional
-        data_packet = {
-            "profile": profile_response.data,
-            "portfolio": portfolio_response.data
-        }
-        
+        # C. Prompt de Consultor de Elite
         prompt = (
-            f"Atue como um Consultor Financeiro Sênior de Wealth Management. "
-            f"Analise os dados abaixo (JSON). Seja direto, profissional e técnico. "
-            f"Fale sobre alocação e riscos. Não use formatação Markdown complexa. "
-            f"Dados: {data_packet}"
+            f"Atue como um Consultor de Elite de Wealth Management. "
+            f"Analise esta carteira de investimentos:\n{portfolio_text}\n\n"
+            f"Responda EXCLUSIVAMENTE em HTML (sem tags <html> ou <body>, apenas o conteúdo div/p/ul) "
+            f"com estas 3 seções estilizadas e curtas:\n"
+            f"1. <h3>Risco da Carteira</h3> (Análise objetiva)\n"
+            f"2. <h3>Sugestão de Diversificação</h3> (O que falta?)\n"
+            f"3. <h3>Comentário sobre o maior ativo</h3> (Destaque o principal)\n"
+            f"Seja direto e profissional."
         )
 
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
-
-        # Lógica de Retry (Tentativa Automática)
-        max_retries = 3
-        for attempt in range(max_retries):
-            response = requests.post(url, json=payload)
-            
-            if response.status_code == 200:
-                ai_text = response.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', 'Sem texto')
-                return {"ai_analysis": ai_text}
-            
-            elif response.status_code == 429:
-                # Se for erro de limite (429), espera e tenta de novo (Backoff Exponencial)
-                wait_time = 2 ** attempt # 1s, 2s, 4s...
-                print(f"Erro 429. Tentando novamente em {wait_time}s...")
-                time.sleep(wait_time)
-            
-            else:
-                # Erro! Tentar Diagnóstico
-                try:
-                    genai.configure(api_key=GOOGLE_API_KEY)
-                    # Lista modelos que suportam generateContent
-                    modelos = []
-                    for m in genai.list_models():
-                        if 'generateContent' in m.supported_generation_methods:
-                            modelos.append(m.name)
-                    
-                    return {
-                        "erro_diagnostico": f"Erro {response.status_code} ({modelo_escolhido}).",
-                        "modelos_disponiveis": modelos
-                    }
-                except Exception as e:
-                    return {"erro_fatal": f"Erro API: {response.text}. Falha Diagnóstico: {str(e)}"}
-
-        return {"erro_fatal": f"Falha após {max_retries} tentativas. API do Google sobrecarregada."}
+        # D. Chama a IA com Fallback
+        ai_analysis = get_gemini_response(prompt)
+        
+        return {"ai_analysis": ai_analysis}
 
     except Exception as e:
-        return {"erro_interno": str(e)}
+        return {"erro_fatal": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

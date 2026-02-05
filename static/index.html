@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuperAppInvest | Dashboard</title>
+    <title>SuperAppInvest | Dashboard V2</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         :root {
@@ -18,6 +20,7 @@
             /* Azul Institucional */
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
+            --border: #2d3748;
         }
 
         body {
@@ -32,7 +35,8 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 1200px;
+            /* Aumentado para Dashboard */
             width: 100%;
         }
 
@@ -43,11 +47,11 @@
             align-items: center;
             margin-bottom: 25px;
             padding-bottom: 15px;
-            border-bottom: 1px solid #2d3748;
+            border-bottom: 1px solid var(--border);
         }
 
         .brand {
-            font-size: 1.2rem;
+            font-size: 1.5rem;
             font-weight: 800;
             letter-spacing: -0.5px;
         }
@@ -56,13 +60,19 @@
             color: var(--primary);
         }
 
-        /* Cards */
+        /* Top Cards Grid */
+        .top-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
         .card {
             background-color: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 15px;
-            border: 1px solid #2d3748;
+            border: 1px solid var(--border);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
@@ -85,42 +95,62 @@
             margin-left: 8px;
         }
 
-        /* AI Section */
-        .ai-box {
-            background: linear-gradient(180deg, #1a202c 0%, #15191e 100%);
-            border: 1px solid #3b82f6;
-            padding: 20px;
-            border-radius: 12px;
-            margin-top: 20px;
+        /* Dashboard Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 6fr 4fr;
+            /* 60% Left, 40% Right */
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Right Panel - Chart */
+        .chart-container {
             position: relative;
-            overflow: hidden;
-        }
-
-        .ai-header {
+            height: 300px;
+            /* Altura fixa para o gráfico */
+            width: 100%;
             display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            color: #60a5fa;
+            justify-content: center;
         }
 
-        .ai-content {
-            font-family: 'Courier New', monospace;
-            line-height: 1.6;
-            color: #cbd5e1;
-            font-size: 0.95rem;
-            white-space: pre-wrap;
+        /* Inputs de Cadastro */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background-color: #0b0e11;
+            color: white;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
         }
 
         /* Button */
         .btn-action {
             width: 100%;
-            padding: 16px;
+            padding: 14px;
             background-color: var(--accent);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
             transition: 0.2s;
@@ -139,16 +169,11 @@
             cursor: not-allowed;
         }
 
-        .btn-action:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
         /* Table Styles */
         .table-container {
             width: 100%;
             overflow-x: auto;
-            margin-top: 20px;
+            margin-top: 10px;
         }
 
         table {
@@ -161,7 +186,7 @@
         td {
             text-align: left;
             padding: 12px 15px;
-            border-bottom: 1px solid #2d3748;
+            border-bottom: 1px solid var(--border);
         }
 
         th {
@@ -172,7 +197,7 @@
         }
 
         tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
+            background-color: rgba(255, 255, 255, 0.03);
         }
 
         .btn-delete {
@@ -186,74 +211,250 @@
         .btn-delete:hover {
             color: #b91c1c;
         }
+
+        /* AI Section */
+        .ai-box {
+            background: linear-gradient(180deg, #1a202c 0%, #15191e 100%);
+            border: 1px solid #3b82f6;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 25px;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #60a5fa;
+            font-weight: bold;
+        }
+
+        /* HTML Output from AI */
+        .ai-content h3 {
+            color: var(--primary);
+            font-size: 1.1rem;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            border-left: 3px solid var(--accent);
+            padding-left: 10px;
+        }
+
+        .ai-content p {
+            margin: 5px 0 10px 0;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
     </style>
 </head>
 
 <body>
 
     <div class="container">
+        <!-- Header -->
         <div class="header">
-            <div class="brand">SUPERAPP<span>INVEST</span></div>
-            <i class="fas fa-bell" style="color: var(--text-muted);"></i>
-        </div>
-
-        <div class="card">
-            <div class="card-label">Patrimônio Total</div>
-            <div class="card-value" id="totalPatrimonio">R$ 0,00 <span class="trend-up"
-                    style="font-size: 0.9rem; margin-left:10px;"><i class="fas fa-sync-alt"></i> Atualizando...</span>
-            </div>
-        </div>
-
-        <!-- Nova Card de Cadastro -->
-        <div class="card">
-            <div class="card-label">Cadastrar Novo Ativo</div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-                <input type="text" id="ticker" placeholder="Ticker (Ex: ITUB4)"
-                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
-                <input type="number" id="amount" placeholder="Qtd"
-                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
-                <input type="number" step="0.01" id="price" placeholder="Preço (R$)"
-                    style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #2d3748; background-color: #0b0e11; color: white;">
-            </div>
-            <button class="btn-action" onclick="cadastrarAtivo()" style="margin-top: 15px; background-color: #3b82f6;">
-                <i class="fas fa-plus-circle"></i> Salvar na Carteira
+            <div class="brand">SUPERAPP<span>INVEST V2</span></div>
+            <button class="btn-action" style="width: auto; background: var(--bg-dark); border: 1px solid var(--border);"
+                onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i>
             </button>
         </div>
 
-        <!-- Tabela Minha Carteira -->
-        <div class="card">
-            <div class="card-label">Minha Carteira</div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Qtd</th>
-                            <th>Preço Médio</th>
-                            <th>Total</th>
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="assetsTableBody">
-                        <!-- Linhas serão inseridas aqui via JS -->
-                    </tbody>
-                </table>
+        <!-- Top Stats Cards -->
+        <div class="top-cards">
+            <div class="card">
+                <div class="card-label">Patrimônio Total</div>
+                <div class="card-value" id="totalPatrimonio">R$ 0,00</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Total de Ativos</div>
+                <div class="card-value" id="totalCount">0</div>
             </div>
         </div>
 
-        <button class="btn-action" onclick="analisarCarteira()" id="btnAnalyze">
-            <i class="fas fa-microchip"></i> Gerar Análise de IA
-        </button>
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
 
-        <div class="ai-box" id="resultArea" style="display: none;">
-            <div class="ai-header">
-                <i class="fas fa-robot"></i> <strong>AI Advisor Insight</strong>
+            <!-- COLUMN 1: Assets Management (60%) -->
+            <div class="left-panel">
+                <!-- Cadastro -->
+                <div class="card">
+                    <div class="card-label"><i class="fas fa-plus-circle"></i> Novo Aporte</div>
+                    <div class="input-group">
+                        <input type="text" id="ticker" placeholder="Ticker (Ex: PETR4)">
+                        <input type="number" id="amount" placeholder="Qtd">
+                        <input type="number" step="0.01" id="price" placeholder="Preço (R$)">
+                    </div>
+                    <button class="btn-action" onclick="cadastrarAtivo()"
+                        style="margin-top: 15px; background-color: var(--primary); color: #000;">
+                        <b>Adicionar Ativo</b>
+                    </button>
+                </div>
+
+                <!-- Lista -->
+                <div class="card">
+                    <div class="card-label">Minha Carteira</div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Ativo</th>
+                                    <th>Qtd</th>
+                                    <th>Preço Médio</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="assetsTableBody">
+                                <!-- JS inserts here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="ai-content" id="aiText"></div>
+
+            <!-- COLUMN 2: Visualization (40%) -->
+            <div class="right-panel">
+                <div class="card">
+                    <div class="card-label">Alocação de Ativos</div>
+                    <div class="chart-container">
+                        <canvas id="assetChart"></canvas>
+                    </div>
+                    <div style="text-align: center; margin-top: 15px; color: var(--text-muted); font-size: 0.85rem;">
+                        Distribuição do Patrimônio
+                    </div>
+                </div>
+
+                <!-- AI Analysis Button & Area -->
+                <div class="card">
+                    <div class="card-label">Inteligência Artificial</div>
+                    <button class="btn-action" onclick="analisarCarteira()" id="btnAnalyze">
+                        <i class="fas fa-magic"></i> Gerar Análise de Portfolio
+                    </button>
+
+                    <div class="ai-box" id="resultArea" style="display: none;">
+                        <div class="ai-header">
+                            <i class="fas fa-robot"></i> Advisor Insight
+                        </div>
+                        <div class="ai-content" id="aiText"></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script>
+        let myChart = null; // Variável global para instância do gráfico
+
+        // 1. Carregar Carteira + Atualizar Gráfico
+        async function carregarCarteira() {
+            try {
+                const response = await fetch('/assets');
+                if (!response.ok) throw new Error("Erro ao buscar ativos");
+
+                const assets = await response.json();
+
+                // Atualizar Contador de Ativos
+                document.getElementById('totalCount').innerText = assets.length;
+
+                // Renderizar Tabela
+                const tbody = document.getElementById('assetsTableBody');
+                tbody.innerHTML = '';
+                let totalPatrimonio = 0;
+
+                assets.forEach(asset => {
+                    const totalInvestido = asset.quantity * asset.average_price;
+                    totalPatrimonio += totalInvestido;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 700; color: white;">${asset.ticker}</td>
+                        <td>${asset.quantity}</td>
+                        <td>R$ ${asset.average_price.toFixed(2)}</td>
+                        <td style="color: var(--primary);">R$ ${totalInvestido.toFixed(2)}</td>
+                        <td style="text-align: right;">
+                            <button class="btn-delete" onclick="deletarAtivo(${asset.id})">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Atualizar Patrimônio Total
+                document.getElementById('totalPatrimonio').innerHTML =
+                    `R$ ${totalPatrimonio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+                // CHAMAR O GRÁFICO
+                updateChart(assets);
+
+            } catch (error) {
+                console.error("Erro ao carregar carteira:", error);
+            }
+        }
+
+        // 2. Renderizar Gráfico com Chart.js
+        function updateChart(assets) {
+            const ctx = document.getElementById('assetChart').getContext('2d');
+
+            // Destroi gráfico anterior se existir
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            // Prepara dados
+            const labels = assets.map(a => a.ticker);
+            const dataValues = assets.map(a => a.quantity * a.average_price);
+
+            // Cores dinâmicas
+            const backgroundColors = [
+                '#00d293', '#2962ff', '#ffab00', '#ff5252', '#9c27b0',
+                '#00bcd4', '#cddc39', '#795548', '#607d8b', '#e91e63'
+            ];
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94a3b8', font: { family: 'Manrope' } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    elements: {
+                        arc: {
+                            borderColor: '#15191e' // Cor do card para "cortar" as fatias
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Cadastrar Ativo
         async function cadastrarAtivo() {
             const ticker = document.getElementById('ticker').value;
             const amount = document.getElementById('amount').value;
@@ -276,9 +477,7 @@
                 });
 
                 if (response.ok) {
-                    alert("Ativo cadastrado!");
-                    carregarCarteira(); // Atualiza a tabela
-                    // Limpar campos
+                    carregarCarteira();
                     document.getElementById('ticker').value = '';
                     document.getElementById('amount').value = '';
                     document.getElementById('price').value = '';
@@ -291,21 +490,34 @@
             }
         }
 
+        // 4. Deletar Ativo
+        async function deletarAtivo(assetId) {
+            if (!confirm("Excluir este ativo?")) return;
+            try {
+                const response = await fetch(`/assets/${assetId}`, { method: 'DELETE' });
+                if (response.ok) carregarCarteira();
+            } catch (error) {
+                console.error("Erro ao deletar:", error);
+            }
+        }
+
+        // 5. Analisar com IA (Com Loading)
         async function analisarCarteira() {
             const btn = document.getElementById('btnAnalyze');
             const box = document.getElementById('resultArea');
             const text = document.getElementById('aiText');
+            const icon = btn.querySelector('i');
 
-            // Estado de Carregamento
+            // Loading State
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando dados...';
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Analisando com IA...';
+
             box.style.display = 'block';
-            text.innerText = "Conectando ao Google Gemini 1.5 Flash...";
+            text.innerHTML = '<span style="color: grey;">Consultando Gemini Models...</span>';
 
             try {
-                // ID DO USUÁRIO HARDCODED PARA TESTE (Tony Stark)
-                const userId = "a114b418-ec3c-407e-a2f2-06c3c453b684";
-
+                const userId = "a114b418-ec3c-407e-a2f2-06c3c453b684"; // Fixo para demo
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -315,81 +527,22 @@
                 const data = await response.json();
 
                 if (data.ai_analysis) {
-                    text.innerText = data.ai_analysis;
-                } else if (data.erro_fatal) {
-                    text.innerText = "Erro: " + data.erro_fatal;
+                    // Injeta HTML direto (A IA foi instruída a retornar HTML)
+                    text.innerHTML = data.ai_analysis;
                 } else {
-                    text.innerText = JSON.stringify(data, null, 2);
+                    text.innerText = "Erro: " + (data.erro_fatal || JSON.stringify(data));
                 }
 
             } catch (error) {
                 text.innerText = "Erro de conexão: " + error.message;
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-rotate-right"></i> Atualizar Análise';
+                btn.innerHTML = '<i class="fas fa-magic"></i> Regerar Análise';
             }
         }
 
-        // --- Novas Funções ---
-
-        async function carregarCarteira() {
-            try {
-                const response = await fetch('/assets');
-                if (!response.ok) throw new Error("Erro ao buscar ativos");
-
-                const assets = await response.json();
-                const tbody = document.getElementById('assetsTableBody');
-                tbody.innerHTML = ''; // Limpa tabela
-
-                let totalPatrimonio = 0;
-
-                assets.forEach(asset => {
-                    const totalInvestido = asset.quantity * asset.average_price;
-                    totalPatrimonio += totalInvestido;
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="font-weight: 600; color: white;">${asset.ticker}</td>
-                        <td>${asset.quantity}</td>
-                        <td>R$ ${asset.average_price.toFixed(2)}</td>
-                        <td style="color: var(--primary);">R$ ${totalInvestido.toFixed(2)}</td>
-                        <td style="text-align: right;">
-                            <button class="btn-delete" onclick="deletarAtivo(${asset.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-
-                // Atualiza o Card de Patrimônio
-                document.getElementById('totalPatrimonio').innerHTML =
-                    `R$ ${totalPatrimonio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span class="trend-up"><i class="fas fa-check-circle"></i> Atualizado</span>`;
-
-            } catch (error) {
-                console.error("Erro ao carregar carteira:", error);
-            }
-        }
-
-        async function deletarAtivo(assetId) {
-            if (!confirm("Tem certeza que deseja excluir este ativo?")) return;
-
-            try {
-                const response = await fetch(`/assets/${assetId}`, { method: 'DELETE' });
-                if (response.ok) {
-                    carregarCarteira(); // Recarrega a tabela e totais
-                } else {
-                    alert("Erro ao excluir ativo.");
-                }
-            } catch (error) {
-                console.error("Erro ao deletar:", error);
-            }
-        }
-
-        // Inicialização
-        window.onload = function () {
-            carregarCarteira();
-        };
+        // Inicializar
+        window.onload = carregarCarteira;
     </script>
 </body>
 
