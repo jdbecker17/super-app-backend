@@ -646,7 +646,12 @@
             try {
                 // Show loading indicator on sync button?
                 const response = await fetch('/assets');
-                if (!response.ok) return;
+                if (!response.ok) {
+                    const errText = await response.text();
+                    console.error("Erro Servidor:", errText);
+                    alert("Erro ao carregar ativos: " + response.status + " - " + errText);
+                    return;
+                }
                 const assets = await response.json();
 
                 // Totals Logic
@@ -664,7 +669,11 @@
                     totalInvestido += invested;
 
                     // Usa preço atual se disponível, senão preço médio
-                    const currentPrice = asset.current_price || asset.average_price;
+                    // Ensure numbers
+                    const avgPrice = parseFloat(asset.average_price) || 0;
+                    const curPriceRaw = asset.current_price !== undefined ? parseFloat(asset.current_price) : avgPrice;
+                    const currentPrice = isNaN(curPriceRaw) ? avgPrice : curPriceRaw;
+
                     const currentValue = asset.quantity * currentPrice;
                     totalPatrimonio += currentValue;
 
@@ -682,7 +691,7 @@
                         <td><span class="badge ${badgeClass}">${cat}</span></td>
                         <td style="font-weight: 600;">${asset.ticker}</td>
                         <td>${asset.quantity}</td>
-                        <td style="color: var(--text-muted);">R$ ${asset.average_price.toFixed(2)}</td>
+                        <td style="color: var(--text-muted);">R$ ${avgPrice.toFixed(2)}</td>
                         <td style="font-weight: 600;">R$ ${currentPrice.toFixed(2)}</td>
                         <td class="${profitClass}">
                             <i class="fas ${profitIcon}" style="font-size: 0.7rem;"></i> ${Math.abs(profitPct).toFixed(2)}%

@@ -41,48 +41,52 @@ def update_prices(assets_data):
     """
     Recebe a lista de ativos do Supabase, busca preços no Yahoo Finance
     e retorna um dicionário {ticker: current_price}.
-    BLINDAGEM: Se falhar, retorna vazio (o frontend usa preço médio).
+    BLINDAGEM TOTAL: Qualquer erro aqui retorna dicionário vazio.
     """
-    if not assets_data:
-        return {}
-
-    # 1. Identificar Tickers (adicionar .SA se for necessário para B3)
-    tickers_map = {} # {ticker_yahoo: ticker_original}
-    tickers_to_fetch = []
-    
-    # Lista de ignorados (exóticos que travam o YFinance)
-    IGNORE_KEYWORDS = ['SELIC', 'CDI', 'TESOURO', 'POUPANÇA', 'VISTA']
-
-    for item in assets_data:
-        original = item['ticker']
-        upper_ticker = original.upper()
-        
-        # A. Checagem de Segurança: Pula ativos exóticos
-        if any(keyword in upper_ticker for keyword in IGNORE_KEYWORDS):
-            continue
-
-        # Lógica simples: Se não tem ponto e parece ação BR (geralmente 5/6 chars), tenta .SA
-        # Mas vamos forçar tentativa.
-        # Se for Cripto (BTC, ETH), o yfinance geralmente precisa de sufixo -USD ou -BRL (ex: BTC-USD)
-        # Assumindo que o usuário digite "PETR4" -> "PETR4.SA"
-        
-        yahoo_ticker = original
-        if "category" in item and item['category']:
-            cat = item['category'].lower()
-            if "cripto" in cat:
-                if not "-" in original: yahoo_ticker = f"{original}-USD"
-            elif "ação" in cat or "fii" in cat or "renda" in cat:
-                if not original.endswith(".SA") and len(original) <= 6:
-                    yahoo_ticker = f"{original}.SA"
-
-        tickers_map[yahoo_ticker] = original
-        tickers_to_fetch.append(yahoo_ticker)
-
-    if not tickers_to_fetch:
-        return {}
-
-    # 2. Buscar no Yahoo Finance (Batch)
     try:
+        if not assets_data:
+            return {}
+
+        # 1. Identificar Tickers (adicionar .SA se for necessário para B3)
+        tickers_map = {} # {ticker_yahoo: ticker_original}
+        tickers_to_fetch = []
+        
+        # Lista de ignorados (exóticos que travam o YFinance)
+        IGNORE_KEYWORDS = ['SELIC', 'CDI', 'TESOURO', 'POUPANÇA', 'VISTA']
+
+        for item in assets_data:
+            # Segurança contra None
+            if not item: continue
+            
+            original = item.get('ticker')
+            if not original: continue
+            
+            upper_ticker = str(original).upper()
+            
+            # A. Checagem de Segurança: Pula ativos exóticos
+            if any(keyword in upper_ticker for keyword in IGNORE_KEYWORDS):
+                continue
+
+            # Lógica simples: Se não tem ponto e parece ação BR (geralmente 5/6 chars), tenta .SA
+            yahoo_ticker = original
+            
+            # Safe access to category
+            category = item.get('category')
+            if category:
+                cat = str(category).lower()
+                if "cripto" in cat:
+                    if not "-" in original: yahoo_ticker = f"{original}-USD"
+                elif "ação" in cat or "fii" in cat or "renda" in cat:
+                    if not original.endswith(".SA") and len(original) <= 6:
+                        yahoo_ticker = f"{original}.SA"
+
+            tickers_map[yahoo_ticker] = original
+            tickers_to_fetch.append(yahoo_ticker)
+
+        if not tickers_to_fetch:
+            return {}
+
+        # 2. Buscar no Yahoo Finance (Batch)
         # download returns a DataFrame
         # period='1d' is enough for latest price
         # threads=False para evitar conflitos em alguns ambientes
@@ -91,7 +95,7 @@ def update_prices(assets_data):
         current_prices = {}
         
         # Se veio vazio ou deu erro
-        if data.empty:
+        if data is None or data.empty:
              return {}
 
         # Se for apenas 1 ticker, a estrutura do DF é diferente (Series ou DataFrame simples)
@@ -110,7 +114,8 @@ def update_prices(assets_data):
             # Às vezes o download falha parcialmente. Iteramos o que foi pedido.
             for yahoo_ticker in tickers_to_fetch:
                 try:
-                    if yahoo_ticker in data['Close']:
+                    # Verifica se existe coluna Close
+                    if 'Close' in data and yahoo_ticker in data['Close']:
                         series = data['Close'][yahoo_ticker]
                         # Remove NaNs
                         last_valid = series.dropna().iloc[-1]
@@ -123,7 +128,8 @@ def update_prices(assets_data):
         return current_prices
 
     except Exception as e:
-        print(f"Erro no YFinance (Ignorado para não travar API): {e}")
+        print(f"Erro CRÍTICO no YFinance (Ignorado): {e}")
+        # Retorna vazio para que o front use o preço médio
         return {}
 
 # 3. Rota de Cadastro de Ativos
