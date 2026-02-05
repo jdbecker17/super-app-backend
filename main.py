@@ -162,29 +162,41 @@ def get_assets():
         response = supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
         assets = response.data
 
-        # Busca Preços Atualizados
+        # Busca Preços Atualizados (Blindado)
         live_prices = update_prices(assets)
 
-        # Enriquece os dados
+        # Enriquece os dados (Defensivo)
         for asset in assets:
-            ticker = asset['ticker']
-            avg_price = asset['average_price']
-            
-            # Se achou preço, usa. Senão, usa o preço médio como fallback (rentabilidade 0%)
-            current_price = live_prices.get(ticker, avg_price)
-            
-            asset['current_price'] = current_price
-            
-            if avg_price > 0:
-                asset['profit_percent'] = ((current_price - avg_price) / avg_price) * 100
-            else:
+            try:
+                ticker = asset.get('ticker')
+                
+                # Garante que average_price seja float
+                avg_price_raw = asset.get('average_price')
+                avg_price = float(avg_price_raw) if avg_price_raw is not None else 0.0
+                asset['average_price'] = avg_price # Atualiza no dict para o frontend não sofrer
+
+                # Se achou preço, usa. Senão, usa o preço médio como fallback
+                # live_prices pode estar vazio se a API falhou
+                current_price = live_prices.get(ticker, avg_price)
+                
+                # Garante current_price float
+                if current_price is None: current_price = avg_price
+                
+                asset['current_price'] = current_price
+                
+                if avg_price > 0:
+                    asset['profit_percent'] = ((current_price - avg_price) / avg_price) * 100
+                else:
+                    asset['profit_percent'] = 0.0
+            except Exception as item_error:
+                print(f"Erro processando item {asset}: {item_error}")
+                # Fallback seguro para esse item
+                asset['current_price'] = asset.get('average_price', 0)
                 asset['profit_percent'] = 0.0
 
         return assets
     except Exception as e:
-        # Em caso de erro grave, retorna erro 500. 
-        # (Idealmente logaríamos o erro e retornaríamos os dados sem live price)
-        print(f"Erro GET /assets: {e}") 
+        print(f"Erro FATAL GET /assets: {e}") 
         raise HTTPException(status_code=500, detail=str(e))
 
 # 3.2 Rota de Exclusão de Ativos (DELETE)
@@ -265,17 +277,29 @@ def analyze_portfolio(request: AnalysisRequest):
         # B. Monta os dados para o Prompt com Rentabilidade
         portfolio_summary = []
         for item in assets:
-            cur_price = live_prices.get(item['ticker'], item['average_price'])
-            profit = 0.0
-            if item['average_price'] > 0:
-                profit = ((cur_price - item['average_price']) / item['average_price']) * 100
-            
-            portfolio_summary.append(
-                f"- {item['ticker']} ({item.get('category', 'Ativo')}): "
-                f"{item['quantity']} cotas. "
-                f"Comprado a R$ {item['average_price']:.2f}, Hoje vale R$ {cur_price:.2f}. "
-                f"Resultado: {profit:+.2f}%"
-            )
+            try:
+                # Segurança tipos
+                raw_avg = item.get('average_price')
+                avg_price = float(raw_avg) if raw_avg is not None else 0.0
+                
+                # Preço atual (fallback seguro)
+                ticker = item.get('ticker', 'UNKNOWN')
+                cur_price = live_prices.get(ticker, avg_price)
+                if cur_price is None: cur_price = avg_price
+                
+                profit = 0.0
+                if avg_price > 0:
+                    profit = ((cur_price - avg_price) / avg_price) * 100
+                
+                portfolio_summary.append(
+                    f"- {ticker} ({item.get('category', 'Ativo')}): "
+                    f"{item.get('quantity', 0)} cotas. "
+                    f"Comprado a R$ {avg_price:.2f}, Hoje vale R$ {cur_price:.2f}. "
+                    f"Resultado: {profit:+.2f}%"
+                )
+            except Exception as e:
+                # Pula item defeituoso no prompt
+                continue
         
         portfolio_text = "\n".join(portfolio_summary)
 
