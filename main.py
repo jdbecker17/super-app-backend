@@ -1,18 +1,44 @@
 # FORCE UPDATE V9 - CONFIRM DEPLOYMENT
 import os
 import requests
-import google.generativeai as genai
-from fastapi import FastAPI, HTTPException, File, UploadFile
 import shutil
 import time
-from ocr_parser import BrokerageNoteParser
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import yfinance as yf
 from dotenv import load_dotenv
 
+# --- SAFE IMPORTS (Try/Except for debugging) ---
+IMPORT_ERRORS = []
+
+try:
+    import google.generativeai as genai
+except Exception as e:
+    genai = None
+    IMPORT_ERRORS.append(f"genai: {e}")
+
+try:
+    import yfinance as yf
+except Exception as e:
+    yf = None
+    IMPORT_ERRORS.append(f"yfinance: {e}")
+
+try:
+    from ocr_parser import BrokerageNoteParser
+except Exception as e:
+    BrokerageNoteParser = None
+    IMPORT_ERRORS.append(f"ocr_parser: {e}")
+
 load_dotenv()
+
 app = FastAPI()
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok" if not IMPORT_ERRORS else "partial",
+        "import_errors": IMPORT_ERRORS
+    }
 
 # --- CONFIGURAÇÃO ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
