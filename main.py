@@ -64,6 +64,7 @@ def update_prices(assets):
         return {}
 
     live_prices = {}
+    prev_closes = {}
     tickers_to_fetch = []
 
     # Lista de Ignorados (Renda Fixa manual)
@@ -142,9 +143,19 @@ def update_prices(assets):
 
             # Fallback history
             if not price:
-                hist = ticker_obj.history(period="1d")
+                hist = ticker_obj.history(period="2d")
                 if not hist.empty:
                     price = hist["Close"].iloc[-1]
+                    # Tenta pegar previous_close do histórico se não tiver fast_info
+                    if len(hist) > 1:
+                        prev_closes[original] = hist["Close"].iloc[-2]
+
+            # Tenta pegar previous_close do fast_info se não pegou do histórico
+            if original not in prev_closes:
+                 try:
+                     prev_closes[original] = ticker_obj.fast_info.previous_close
+                 except:
+                     pass
 
             if price and float(price) > 0:
                 live_prices[original] = float(price)
@@ -155,7 +166,7 @@ def update_prices(assets):
         except Exception as e:
             print(f"DEBUG: Erro {yahoo}: {e}")
 
-    return live_prices
+    return live_prices, prev_closes
 
 
 # --- ROTAS ---
@@ -224,7 +235,7 @@ def get_assets():
     )
 
     # 2. Busca Preços (V8)
-    live_prices = update_prices(assets)
+    live_prices, prev_closes = update_prices(assets)
     usd_rate = MARKET_CACHE.get("usd_rate", 5.0)
 
     # 3. Processa
@@ -243,8 +254,9 @@ def get_assets():
         raw_avg = a.get("average_price")
         avg = float(raw_avg) if raw_avg is not None else 0.0
 
-        # Preço Atual (Original)
+        # Preço Atual (Original) e Fechamento Anterior
         curr_original = live_prices.get(ticker, avg)
+        prev_close_original = prev_closes.get(ticker, curr_original)
 
         # Conversão para BRL se for internacional
         if is_intl:
@@ -261,6 +273,10 @@ def get_assets():
                 a["profit_percent"] = ((curr_original - avg) / avg) * 100
             else:
                 a["profit_percent"] = 0.0
+            
+            # Daily Change USD
+            a["daily_change"] = (curr_original - prev_close_original) * a["quantity"] * usd_rate
+            a["daily_change_pct"] = ((curr_original - prev_close_original) / prev_close_original) * 100 if prev_close_original > 0 else 0.0
         else:
             a["currency"] = "BRL"
             a["price_original"] = curr_original
@@ -270,6 +286,10 @@ def get_assets():
                 a["profit_percent"] = ((curr_original - avg) / avg) * 100
             else:
                 a["profit_percent"] = 0.0
+
+            # Daily Change BRL
+            a["daily_change"] = (curr_original - prev_close_original) * a["quantity"]
+            a["daily_change_pct"] = ((curr_original - prev_close_original) / prev_close_original) * 100 if prev_close_original > 0 else 0.0
 
         a["average_price"] = avg  # Mantém o original cadastrado
 
@@ -315,20 +335,70 @@ def analyze(req: dict):
             "Gere HTML puro (sem markdown ```html) com 3 seções curtas e diretas:\n"
             "1. <h3>Diagnóstico de Risco</h3>\n"
             "2. <h3>Destaques de Performance</h3> (Cite quem lucrou mais)\n"
-            "3. <h3>Ação Recomendada</h3> (Comprar/Vender/Manter)"
+@app.post("/analyze")
+def analyze(req: dict):
+    try:
+        genai.configure(api_key=GOOGLE_API_KEY)
+        assets = get_assets()
+
+        # Resumo detalhado para a IA
+        resumo = ""
+        total_patrimonio = 0
+        
+        # Agrupamento por Categoria
+        alloc = {}
+        
+        for a in assets:
+            val = a["quantity"] * a["current_price"]
+            total_patrimonio += val
+            cat = a["category"]
+            alloc[cat] = alloc.get(cat, 0) + val
+            
+            p_l_pct = a.get("profit_percent", 0)
+            resumo += f"- {a['ticker']} ({a['category']}): {a['quantity']} un. Total R$ {val:.2f}. Rentab. {p_l_pct:.2f}%\n"
+
+        prompt = (
+            f"Atue como um Consultor de Wealth Management de Elite (CFA Nível 3).\n"
+            f"Analise esta carteira de R$ {total_patrimonio:.2f}.\n"
+            f"Alocação Atual: {alloc}\n"
+            f"Ativos:\n{resumo}\n\n"
+            "Objetivo: Maximizar retorno ajustado ao risco e garantir diversificação inteligente.\n"
+            "Gere uma resposta em HTML PURO (sem tags html, head, body, sem markdown ```html). "
+            "Use classes CSS do Tailwind se achar pertinente, mas foque na estrutura.\n\n"
+            "Estrutura da Resposta:\n"
+            "<div class='space-y-6'>\n"
+            "  <div class='bg-gray-800 p-4 rounded-lg border-l-4 border-yellow-500'>\n"
+            "    <h3 class='text-lg font-bold text-white mb-2'>🛡️ Diagnóstico de Risco & Concentração</h3>\n"
+            "    <p class='text-gray-300'>[Análise crítica da alocação. Identifique ativos que ultrapassam 15% da carteira ou setores expostos demais. Seja direto.]</p>\n"
+            "  </div>\n\n"
+            "  <div class='bg-gray-800 p-4 rounded-lg border-l-4 border-green-500'>\n"
+            "    <h3 class='text-lg font-bold text-white mb-2'>🚀 Destaques & Oportunidades</h3>\n"
+            "    <p class='text-gray-300'>[Cite o melhor ativo e por que ele performou bem. Identifique oportunidades de entrada em classes sub-alocadas (ex: FIIs, Renda Fixa) para equilibrar.]</p>\n"
+            "  </div>\n\n"
+            "  <div class='bg-gray-800 p-4 rounded-lg border-l-4 border-blue-500'>\n"
+            "    <h3 class='text-lg font-bold text-white mb-2'>⚖️ Plano de Ação (Rebalanceamento)</h3>\n"
+            "    <ul class='list-disc list-inside text-gray-300 space-y-1'>\n"
+            "      <li>[Sugestão Prática 1: Ex: 'Reduzir exposição em VALE3 em 5%...']</li>\n"
+            "      <li>[Sugestão Prática 2]</li>\n"
+            "      <li>[Sugestão Prática 3]</li>\n"
+            "    </ul>\n"
+            "  </div>\n"
+            "</div>"
         )
 
         # Tenta modelos
-        for m in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        for m in ["gemini-2.0-pro-exp", "gemini-1.5-pro", "gemini-1.5-flash"]:
             try:
                 model = genai.GenerativeModel(m)
-                return {"ai_analysis": model.generate_content(prompt).text}
-            except Exception:
+                response = model.generate_content(prompt)
+                return {"ai_analysis": response.text}
+            except Exception as e:
+                print(f"Erro Model {m}: {e}")
                 continue
-        return {"ai_analysis": "IA indisponível."}
+        return {"ai_analysis": "Sistema de IA temporariamente indisponível. Tente novamente em instantes."}
 
     except Exception as e:
-        return {"ai_analysis": f"Erro IA: {str(e)}"}
+        return {"ai_analysis": f"Erro Interno IA: {str(e)}"}
 
 
 @app.get("/dividends")
@@ -455,6 +525,192 @@ def get_dividends():
     MARKET_CACHE["div_last_updated"] = now
 
     return result
+
+
+@app.get("/history")
+def get_history():
+    """
+    Returns simulated historical performance vs benchmarks (IBOV, CDI).
+    Since we don't have full transaction history, we simulate:
+    "If I held this current portfolio for the last 12 months..."
+    """
+    # Cache
+    now = time.time()
+    if now - MARKET_CACHE.get("hist_last_updated", 0) < 3600 and "history" in MARKET_CACHE:
+         return MARKET_CACHE["history"]
+
+    assets = get_assets()
+    if not assets:
+        return {"portfolio": [], "ibov": [], "cdi": []}
+    
+    import pandas as pd
+    import numpy as np
+    
+    # 1. Download Benchmarks (1y)
+    tickers = {"IBOV": "^BVSP", "CDI": "CDI"} # CDI is tricky, usually we use a constant rate or mock
+    
+    end_date = pd.Timestamp.now()
+    start_date = end_date - pd.DateOffset(months=12)
+    
+    # IBOV
+    ibov_df = yf.download("^BVSP", start=start_date, end=end_date, progress=False)
+    # Normalize IBOV to start at 100
+    if not ibov_df.empty:
+        ibov_norm = (ibov_df["Close"] / ibov_df["Close"].iloc[0]) * 100
+        ibov_data = [{"date": d.strftime("%Y-%m-%d"), "value": v} for d, v in ibov_norm.items()]
+    else:
+        ibov_data = []
+
+    # CDI Mock (Constante 13.65% a.a -> ~0.05% ao dia util)
+    # Simulator linear growth
+    cdi_data = []
+    days = len(ibov_data)
+    if days > 0:
+        daily_rate = (1 + 0.1365)**(1/252) - 1
+        curr = 100.0
+        for item in ibov_data:
+            cdi_data.append({"date": item["date"], "value": curr})
+            curr *= (1 + daily_rate)
+            
+    # Portfolio Simulation
+    # We take current weights and apply to individual asset histories
+    # This is expensive. We will do a simplified version: 
+    # Get history for top 5 assets and assume they represent the move.
+    
+    # For now, let's just use IBOV + Alpha (Random/Mock) or just return IBOV/CDI for frontend dev
+    # Real implementation would require fetching history for ALL assets.
+    # Let's try fetching history for the portfolio items.
+    
+    portfolio_series = pd.Series(0.0, index=ibov_df.index)
+    total_current_value = sum(a["current_price"] * a["quantity"] for a in assets)
+    
+    if total_current_value > 0:
+        # Fetch history for each asset
+        for a in assets:
+            qty = a["quantity"]
+            if qty <= 0: continue
+            
+            ticker = a["ticker"]
+            # Suffix logic again...
+            yticker = ticker
+            cat = str(a.get("category", "")).lower()
+            is_intl = "usa" in cat or "stock" in cat
+            
+            if not is_intl and not ticker.endswith(".SA") and len(ticker) <= 6:
+                yticker = f"{ticker}.SA"
+                
+            try:
+                hist = yf.download(yticker, start=start_date, end=end_date, progress=False)
+                if not hist.empty:
+                    # Reindex to match IBOV dates (fill fwd)
+                    hist = hist["Close"].reindex(ibov_df.index, method="ffill").fillna(0)
+                    
+                    # Convert to BRL if intl
+                    val_series = hist * qty
+                    if is_intl:
+                         val_series *= MARKET_CACHE.get("usd_rate", 5.0)
+                         
+                    portfolio_series = portfolio_series.add(val_series, fill_value=0)
+            except:
+                pass
+        
+        # Normalize Portfolio
+        if not portfolio_series.empty and portfolio_series.iloc[0] > 0:
+            port_norm = (portfolio_series / portfolio_series.iloc[0]) * 100
+            port_data = [{"date": d.strftime("%Y-%m-%d"), "value": v} for d, v in port_norm.items()]
+        else:
+            port_data = []
+    else:
+        port_data = []
+
+    result = {
+        "portfolio": port_data,
+        "ibov": ibov_data,
+        "cdi": cdi_data
+    }
+    
+    MARKET_CACHE["history"] = result
+    MARKET_CACHE["hist_last_updated"] = now
+    return result
+
+
+@app.get("/news")
+def get_news():
+    """
+    Returns personalized news feed based on portfolio assets.
+    Uses Google News RSS.
+    """
+    # Cache
+    now = time.time()
+    if now - MARKET_CACHE.get("news_last_updated", 0) < 1800 and "news" in MARKET_CACHE:
+         return MARKET_CACHE["news"]
+
+    assets = get_assets()
+    if not assets:
+        return []
+
+    # Extract unique tickers/names
+    # Limit to top 5 holdings to avoid huge query
+    sorted_assets = sorted(assets, key=lambda x: x["current_price"] * x["quantity"], reverse=True)
+    top_assets = sorted_assets[:5]
+    
+    query_terms = [a["ticker"] for a in top_assets]
+    # Add some general terms
+    query_terms.append("Mercado Financeiro")
+    
+    query_str = " OR ".join(query_terms)
+    rss_url = f"https://news.google.com/rss/search?q={query_str}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+    
+    try:
+        import xml.etree.ElementTree as ET
+        resp = requests.get(rss_url, timeout=5)
+        root = ET.fromstring(resp.content)
+        
+        items = []
+        for item in root.findall(".//item")[:10]:
+            title = item.find("title").text
+            link = item.find("link").text
+            pubDate = item.find("pubDate").text
+            source = item.find("source").text if item.find("source") is not None else "Google News"
+            
+            items.append({
+                "title": title,
+                "link": link,
+                "date": pubDate,
+                "source": source
+            })
+            
+        MARKET_CACHE["news"] = items
+        MARKET_CACHE["news_last_updated"] = now
+        return items
+    except Exception as e:
+        print(f"Erro News: {e}")
+        return []
+
+
+@app.get("/taxes")
+def get_taxes():
+    """
+    Calculadora DARF (MVP) - Placeholder
+    In a real app, this would iterate over 'sales' history table.
+    """
+    return {
+        "swing_trade": {
+            "accumulated_loss": 0.0,
+            "current_month_profit": 0.0,
+            "tax_due": 0.0
+        },
+        "day_trade": {
+            "accumulated_loss": 0.0,
+            "current_month_profit": 0.0,
+            "tax_due": 0.0
+        },
+        "fii": {
+             "accumulated_loss": 0.0,
+            "current_month_profit": 0.0,
+            "tax_due": 0.0
+        }
+    }
 
 
 @app.get("/assets/search")

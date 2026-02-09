@@ -184,6 +184,11 @@
                                         class="bg-green-500/10 text-neon-green px-2 py-0.5 rounded text-xs font-bold">--%</span>
                                     <span class="text-[#637588] dark:text-[#9dabb9] text-sm">Rentabilidade Global</span>
                                 </div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span id="daily-profit-badge"
+                                        class="bg-gray-700 text-gray-400 px-2 py-0.5 rounded text-xs font-bold">--</span>
+                                    <span class="text-[#637588] dark:text-[#9dabb9] text-sm">Variação Hoje (Est.)</span>
+                                </div>
                             </div>
                         </div>
                         <div class="absolute bottom-0 left-0 right-0 h-24 opacity-20 pointer-events-none">
@@ -208,6 +213,33 @@
                             class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm transition-colors">
                             Gerar Análise
                         </button>
+                    </div>
+                </div>
+
+                <!-- PERFORMANCE & NEWS ROW -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Performance Chart -->
+                    <div
+                        class="lg:col-span-2 rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark p-6 shadow-sm">
+                        <h2 class="text-[#111418] dark:text-white font-bold text-lg mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-500">show_chart</span>
+                            Performance Histórica (Simulada)
+                        </h2>
+                        <div class="h-64 relative w-full">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- News Feed -->
+                    <div
+                        class="lg:col-span-1 rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark p-6 shadow-sm flex flex-col">
+                        <h2 class="text-[#111418] dark:text-white font-bold text-lg mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-yellow-500">newspaper</span>
+                            Notícias Relevantes
+                        </h2>
+                        <div id="news-feed" class="flex-1 overflow-y-auto no-scrollbar space-y-4 max-h-64">
+                            <p class="text-gray-500 text-sm italic">Carregando notícias...</p>
+                        </div>
                     </div>
                 </div>
 
@@ -465,6 +497,18 @@
 
             badge.className = `px-2 py-0.5 rounded text-xs font-bold ${totalProfitVal >= 0 ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'} sensitive-val`;
             badge.innerText = `${totalProfitVal >= 0 ? '▲' : '▼'} ${totalProfitPct.toFixed(2)}%`;
+
+            // Badge Diário
+            // Calcular soma de daily_change dos ativos
+            let totalDailyChange = 0;
+            assets.forEach(a => {
+                totalDailyChange += (a.daily_change || 0);
+            });
+            const dailyBadge = document.getElementById('daily-profit-badge');
+            const dailyPct = total > 0 ? (totalDailyChange / total) * 100 : 0;
+
+            dailyBadge.className = `px-2 py-0.5 rounded text-xs font-bold ${totalDailyChange >= 0 ? 'bg-green-500/10 text-neon-green' : 'bg-red-500/10 text-neon-red'} sensitive-val`;
+            dailyBadge.innerText = `${totalDailyChange >= 0 ? '▲' : '▼'} R$ ${Math.abs(totalDailyChange).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${dailyPct.toFixed(2)}%)`;
         }
 
         // Treemap Chart
@@ -673,11 +717,117 @@
             });
         }
 
+        // --- NEW FEATURES JS ---
+
+        async function fetchHistory() {
+            try {
+                const res = await fetch(`${API_URL}/history`);
+                const data = await res.json();
+                renderHistoryChart(data);
+            } catch (e) { console.error("History Error:", e); }
+        }
+
+        function renderHistoryChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+
+            // Labels (Dates) - Use Portfolio dates
+            const labels = data.portfolio.map(d => d.date);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Meu Portfólio',
+                            data: data.portfolio.map(d => d.value),
+                            borderColor: '#137fec',
+                            backgroundColor: 'rgba(19, 127, 236, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'IBOV',
+                            data: data.ibov.map(d => d.value),
+                            borderColor: '#f59e0b', // Yellow
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'CDI',
+                            data: data.cdi.map(d => d.value),
+                            borderColor: '#10b981', // Green
+                            borderDash: [2, 2],
+                            tension: 0.4,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { grid: { color: '#283039' }, ticks: { color: '#9dabb9' } },
+                        x: { grid: { display: false }, ticks: { display: false } } // Hide dates to avoid clutter
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    }
+                }
+            });
+        }
+
+        async function fetchNews() {
+            try {
+                const res = await fetch(`${API_URL}/news`);
+                const data = await res.json();
+                renderNews(data);
+            } catch (e) {
+                document.getElementById('news-feed').innerHTML = '<p class="text-red-500 text-xs">Erro ao carregar notícias.</p>';
+            }
+        }
+
+        function renderNews(items) {
+            const container = document.getElementById('news-feed');
+            container.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-xs">Nenhuma notícia relevante encontrada.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                // Parse date if needed, or just show raw
+                const dateObj = new Date(item.date);
+                const dateStr = !isNaN(dateObj) ? dateObj.toLocaleDateString('pt-BR') : item.date;
+
+                const html = `
+                <a href="${item.link}" target="_blank" class="block group">
+                    <div class="bg-[#f0f2f4] dark:bg-[#202b38] p-3 rounded-lg border border-[#e5e7eb] dark:border-[#283039] hover:border-primary transition-colors">
+                        <h4 class="text-[#111418] dark:text-white font-bold text-sm text-ellipsis overflow-hidden line-clamp-2 group-hover:text-primary transition-colors">
+                            ${item.title}
+                        </h4>
+                        <div class="flex justify-between items-center mt-2">
+                             <span class="text-[10px] text-[#637588] dark:text-[#9dabb9]">${item.source}</span>
+                             <span class="text-[10px] text-[#637588] dark:text-[#9dabb9]">${dateStr}</span>
+                        </div>
+                    </div>
+                </a>`;
+                container.innerHTML += html;
+            });
+        }
+
         // Inicializar
         document.addEventListener('DOMContentLoaded', () => {
             fetchMarketData();
             fetchAssets();
             fetchDividends();
+            fetchHistory();
+            fetchNews();
             // Polling Ticker a cada 60s
             setInterval(fetchMarketData, 60000);
         });
