@@ -5,6 +5,10 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>InvestEdge Pro</title>
+    <meta name="description" content="InvestEdge Pro - Advanced Investment Dashboard" />
+    <meta property="og:title" content="InvestEdge Pro" />
+    <meta property="og:description" content="Manage your portfolio with AI insights" />
+    <meta property="og:type" content="website" />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
@@ -68,6 +72,18 @@
 
         .blur-sensitive .sensitive-val:hover {
             filter: blur(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            ::before,
+            ::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     </style>
 </head>
@@ -161,8 +177,8 @@
                                 <p
                                     class="text-[#637588] dark:text-[#9dabb9] text-sm font-semibold uppercase tracking-wider mb-1">
                                     Patrimônio Total</p>
-                                <h3 id="total-balance" class="text-[#111418] dark:text-white text-4xl font-bold">R$
-                                    --,--</h3>
+                                <h2 id="total-balance" class="text-[#111418] dark:text-white text-4xl font-bold">R$
+                                    --,--</h2>
                                 <div class="flex items-center gap-2 mt-2">
                                     <span id="total-profit-badge"
                                         class="bg-green-500/10 text-neon-green px-2 py-0.5 rounded text-xs font-bold">--%</span>
@@ -182,7 +198,7 @@
                         <div>
                             <div class="flex items-center gap-2 mb-3 text-indigo-400">
                                 <span class="material-symbols-outlined">psychology</span>
-                                <h3 class="font-bold uppercase text-xs tracking-wider">Gemini Advisor</h3>
+                                <h2 class="font-bold uppercase text-xs tracking-wider">Gemini Advisor</h2>
                             </div>
                             <p class="text-white text-lg font-bold leading-tight">Analise sua carteira com Inteligência
                                 Artificial.</p>
@@ -200,7 +216,7 @@
                     <div
                         class="xl:col-span-2 rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark overflow-hidden flex flex-col">
                         <div class="p-5 border-b border-[#283039] flex justify-between items-center">
-                            <h3 class="text-white font-bold text-lg">Minhas Posições</h3>
+                            <h2 class="text-white font-bold text-lg">Minhas Posições</h2>
                             <button onclick="fetchAssets()"
                                 class="text-primary hover:text-white text-sm">Atualizar</button>
                         </div>
@@ -226,7 +242,7 @@
                     <div class="xl:col-span-1 flex flex-col gap-6">
                         <div
                             class="rounded-xl border border-[#e5e7eb] dark:border-[#283039] bg-white dark:bg-surface-dark p-6">
-                            <h3 class="text-white font-bold text-lg mb-4">Alocação</h3>
+                            <h2 class="text-white font-bold text-lg mb-4">Alocação</h2>
                             <div class="h-64 relative">
                                 <canvas id="allocationChart"></canvas>
                             </div>
@@ -235,7 +251,7 @@
 
                         <div id="ai-result"
                             class="hidden rounded-xl border border-[#283039] bg-white dark:bg-surface-dark p-6 animate-pulse">
-                            <h3 class="text-white font-bold text-lg mb-2">Análise do Consultor</h3>
+                            <h2 class="text-white font-bold text-lg mb-2">Análise do Consultor</h2>
                             <div id="ai-content" class="prose dark:prose-invert prose-sm max-w-none text-gray-300">
                                 Carregando...
                             </div>
@@ -248,10 +264,10 @@
                     <div class="flex flex-col md:flex-row gap-8">
                         <!-- Chart -->
                         <div class="flex-1 min-w-0">
-                            <h3 class="text-[#111418] dark:text-white font-bold text-lg mb-4 flex items-center gap-2">
+                            <h2 class="text-[#111418] dark:text-white font-bold text-lg mb-4 flex items-center gap-2">
                                 <span class="material-symbols-outlined text-neon-green">payments</span>
                                 Evolução de Proventos (12 Meses)
-                            </h3>
+                            </h2>
                             <div class="h-72 relative w-full">
                                 <canvas id="dividendChart"></canvas>
                             </div>
@@ -263,9 +279,9 @@
                                 <p
                                     class="text-[#637588] dark:text-[#9dabb9] text-sm font-semibold uppercase tracking-wider mb-1">
                                     Total Recebido (12m)</p>
-                                <h3 id="total-dividends"
+                                <h2 id="total-dividends"
                                     class="text-neon-green text-3xl font-bold sensitive-val animate-pulse">Carregando...
-                                </h3>
+                                </h2>
                             </div>
                             <div class="flex-1 overflow-hidden flex flex-col">
                                 <h4 class="text-[#111418] dark:text-white font-bold text-sm mb-3">Próximos Pagamentos
@@ -485,7 +501,7 @@
                             // Cores dinâmicas baseadas no valor? Ou fixas por categoria?
                             // Vamos usar cores fixas mapeadas
                             const colors = {
-                                "Ação": "#137fec", "FII": "#8b5cf6", "Cripto": "#f59e0b",
+                                "Ação": "#137fec", "FII": "#14b8a6", "Cripto": "#f59e0b",
                                 "Renda Fixa": "#10b981", "Stocks": "#3b82f6", "REITs": "#6366f1"
                             };
                             return colors[ctx.raw?.g] || "#637588";
