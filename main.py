@@ -2,7 +2,9 @@
 import os
 import requests
 import google.generativeai as genai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
+import shutil
+from ocr_parser import BrokerageNoteParser
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import yfinance as yf
@@ -311,21 +313,20 @@ def get_dividends():
         qty = a.get('quantity', 0)
         if qty <= 0: continue
         
-        # Ajuste Ticker V8 logic (já temos no a['ticker'] do banco, mas precisamos do Yahoo Ticker)
-        # O get_assets já não retorna o yahoo ticker, ele retorna o do banco.
-        # Vamos reusar a logica rapida de sufixo aqui ou confiar no cache de update_prices? 
-        # Melhor re-aplicar a lógica simples de sufixo para garantir.
-        
         # Logica Simplificada de Sufixo (igual update_prices)
         yticker = ticker
-        cat = str(a.get('category', '')).lower()
-        is_intl = 'usa' in cat or 'eua' in cat or 'int' in cat or 'stock' in cat or 'reit' in cat or 'cripto' in cat
-        if "." not in ticker and not is_intl and len(ticker) <= 6 and "USD" not in ticker:
-            yticker = f"{ticker}.SA"
+        if a.get('category') == 'Ação' or a.get('category') == 'FII':
+             if not (ticker.endswith('.SA') or ticker.endswith('.SAO')):
+                 yticker = f"{ticker}.SA"
+        elif a.get('category') == 'Cripto':
+             yticker = f"{ticker}-USD"
 
+        # Pular se for "Cripto" genérico ou não tiver sufixo correto
+        # (Melhorar essa lógica depois)
+        
         try:
             # Otimização: Se for Cripto, não tem dividendo (exceto alguns casos raros staking, mas YF n traz)
-            if 'cripto' in cat or 'btc' in cat.lower(): continue
+            if 'cripto' in str(a.get('category')).lower() or 'btc' in str(a.get('category')).lower(): continue
 
             obj = yf.Ticker(yticker)
             divs = obj.dividends
@@ -347,6 +348,7 @@ def get_dividends():
                 payment = val * qty
                 
                 # Conversão USD se necessário (já temos rate no cache)
+                is_intl = 'usa' in str(a.get('category')).lower() or 'eua' in str(a.get('category')).lower() or 'int' in str(a.get('category')).lower() or 'stock' in str(a.get('category')).lower() or 'reit' in str(a.get('category')).lower() or 'cripto' in str(a.get('category')).lower()
                 if is_intl:
                     usd_rate = MARKET_CACHE.get('usd_rate', 5.0)
                     payment = payment * usd_rate
@@ -391,6 +393,78 @@ def get_dividends():
     MARKET_CACHE['div_last_updated'] = now
     
     return result
+
+@app.get("/assets/search")
+def search_assets(q: str):
+    """
+    Autocomplete endpoint for Assets Master DB
+    """
+    if not q or len(q) < 2:
+        return []
+    
+    q = q.upper()
+    try:
+        # Search by Ticker OR Name (Client-side usually sends just text)
+        # Using Supabase 'or' syntax: ticker.ilike.%Q%,name.ilike.%Q%
+        # Note: wildcards in Supabase usually need * or % depending on exact lib, 
+        # but postgrest-js uses .ilike('col', '%val%'). 
+        # Here we are using requests. GET /table?select=*&or=(ticker.ilike.*VAL*,name.ilike.*VAL*)
+        # Correct PostgREST syntax for OR with ILIKE is tricky in URL params.
+        # Let's try simple filter first. Search by ticker only for MVP if OR fails.
+        
+        # SINTAXE CORRETA DO SUPABASE/POSTGREST PARA 'OR':
+        # or=(ticker.ilike.*PETR*,name.ilike.*PETR*)
+        
+        params = {
+            "select": "*",
+            "or": f"(ticker.ilike.*{q}*,name.ilike.*{q}*)",
+            "limit": "10"
+        }
+        
+        # Debug URL construction if needed
+        # print(f"DEBUG SEARCH: {q}")
+        
+        data = supabase_fetch("assets_master", params=params)
+        return data
+    except Exception as e:
+        print(f"Erro Search: {e}")
+        return []
+
+@app.post("/upload-note")
+async def upload_note(file: UploadFile = File(...)):
+    """
+    Receives a PDF brokerage note, saves it momentarily, parses it with OCR, and returns JSON data.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Apenas arquivos PDF são permitidos.")
+    
+    os.makedirs("temp_notes", exist_ok=True)
+    # Sanitize filename avoiding directory traversal is good practice but for now simple
+    safe_filename = os.path.basename(file.filename)
+    file_path = f"temp_notes/{safe_filename}"
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Parse
+        parser = BrokerageNoteParser(file_path)
+        data = parser.parse()
+        
+        # Clean up
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        if not data:
+             raise HTTPException(400, "Falha ao ler nota. Verifique se é um PDF SINACUR/B3 válido.")
+             
+        return data
+
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        print(f"Erro Upload: {e}")
+        raise HTTPException(500, f"Erro ao processar nota: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

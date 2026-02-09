@@ -141,6 +141,11 @@
                         <p class="text-[#637588] dark:text-[#9dabb9] text-base font-normal">Bem-vindo de volta. Aqui
                             está o desempenho do seu portfólio hoje.</p>
                     </div>
+                    <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
+                        class="group flex items-center justify-center gap-2 cursor-pointer overflow-hidden rounded-lg h-10 px-5 bg-[#283039] hover:bg-[#323b45] text-white text-sm font-bold transition-all border border-[#3e4854]">
+                        <span class="material-symbols-outlined text-[20px]">upload_file</span>
+                        <span>Importar Nota</span>
+                    </button>
                     <button onclick="document.getElementById('addModal').classList.remove('hidden')"
                         class="group flex items-center justify-center gap-2 cursor-pointer overflow-hidden rounded-lg h-10 px-5 bg-primary hover:bg-blue-600 text-white text-sm font-bold transition-all shadow-[0_0_15px_rgba(19,127,236,0.3)]">
                         <span class="material-symbols-outlined text-[20px]">add</span>
@@ -283,11 +288,16 @@
         <div class="bg-[#1c2632] p-6 rounded-2xl w-full max-w-md border border-[#283039] shadow-2xl">
             <h2 class="text-xl font-bold mb-4 text-white">Adicionar Novo Ativo</h2>
             <form id="addForm" class="space-y-4">
-                <div>
+                <div class="relative">
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Ticker</label>
                     <input type="text" id="ticker"
                         class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none uppercase"
-                        placeholder="Ex: PETR4" required>
+                        placeholder="Ex: PETR4 ou AAPL" autocomplete="off" required>
+                    <!-- Autocomplete Dropdown -->
+                    <ul id="ticker-suggestions"
+                        class="absolute z-50 w-full bg-[#1c2632] border border-[#283039] rounded-lg mt-1 hidden max-h-48 overflow-y-auto shadow-xl">
+                        <!-- Items rendered via JS -->
+                    </ul>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -307,11 +317,13 @@
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Categoria</label>
                     <select id="category"
                         class="w-full bg-[#111418] border border-[#283039] rounded-lg p-3 text-white focus:border-primary outline-none">
-                        <option value="Ação">Ação</option>
+                        <option value="Ação">Ação (Brasil)</option>
+                        <option value="Stocks">Stocks (USA)</option>
                         <option value="FII">FII</option>
-                        <option value="Renda Fixa">Renda Fixa</option>
-                        <option value="Cripto">Cripto</option>
+                        <option value="REITs">REITs</option>
                         <option value="ETF">ETF</option>
+                        <option value="Cripto">Cripto</option>
+                        <option value="Renda Fixa">Renda Fixa</option>
                     </select>
                 </div>
                 <div class="flex gap-3 pt-4">
@@ -653,6 +665,302 @@
             // Polling Ticker a cada 60s
             setInterval(fetchMarketData, 60000);
         });
+    </script>
+    <div id="loading-overlay"
+        class="fixed inset-0 bg-black/50 hidden z-[200] flex items-center justify-center backdrop-blur-sm">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal"
+        class="fixed inset-0 bg-black/80 hidden z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div
+            class="bg-[#1c2632] p-6 rounded-2xl w-full max-w-2xl border border-[#283039] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">Importar Nota de Corretagem (PDF)</h2>
+                <button onclick="resetUpload(); document.getElementById('uploadModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div id="upload-step-1" class="flex flex-col gap-4">
+                <div class="border-2 border-dashed border-[#283039] rounded-xl p-8 flex flex-col items-center justify-center gap-4 hover:border-primary transition-colors cursor-pointer"
+                    onclick="document.getElementById('fileInput').click()">
+                    <span class="material-symbols-outlined text-4xl text-[#637588]">upload_file</span>
+                    <p class="text-[#9dabb9] text-sm">Clique para selecionar ou arraste o PDF aqui</p>
+                    <input type="file" id="fileInput" accept=".pdf" class="hidden" onchange="handleFileSelect(this)">
+                </div>
+            </div>
+
+            <div id="upload-step-2" class="hidden flex-col gap-4 flex-1 overflow-hidden">
+                <div class="flex justify-between items-center bg-[#111418] p-3 rounded-lg border border-[#283039]">
+                    <div class="flex flex-col">
+                        <h3 class="text-white font-bold text-sm">Resumo da Leitura</h3>
+                        <p id="note-metadata" class="text-xs text-[#9dabb9]"></p>
+                    </div>
+                    <span id="found-count" class="text-xs text-neon-green font-bold bg-green-500/10 px-2 py-1 rounded">0
+                        itens</span>
+                </div>
+                <div class="overflow-y-auto flex-1 border border-[#283039] rounded-lg">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-[#111418] text-[#9dabb9] uppercase font-bold sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2">Tipo</th>
+                                <th class="px-4 py-2">Ativo</th>
+                                <th class="px-4 py-2 text-right">Qtd</th>
+                                <th class="px-4 py-2 text-right">Preço</th>
+                                <th class="px-4 py-2 text-right">Total</th>
+                                <th class="px-4 py-2">Categoria (Auto)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-body" class="divide-y divide-[#283039] text-gray-300">
+                            <!-- JS Populated -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Warning Text -->
+                <p class="text-[10px] text-yellow-500/80 italic">
+                    * Verifique os dados. Vendas serão importadas como quantidade negativa.
+                </p>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="resetUpload()"
+                        class="px-4 py-2 rounded-lg font-bold text-gray-400 hover:text-white hover:bg-[#283039] transition-colors">Cancelar</button>
+                    <button onclick="confirmImport()" id="confirm-btn"
+                        class="flex-1 py-2 rounded-lg font-bold text-white bg-green-600 hover:bg-green-500 transition-colors shadow-lg shadow-green-900/20">Confirmar
+                        Importação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Autocomplete Logic
+        const tickerInput = document.getElementById('ticker');
+        const suggestionsList = document.getElementById('ticker-suggestions');
+        const categorySelect = document.getElementById('category');
+        let debounceTimer;
+
+        tickerInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val.length < 2) {
+                suggestionsList.classList.add('hidden');
+                return;
+            }
+
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchAssetsSearch(val);
+            }, 300);
+        });
+
+        // Hide on click outside
+        document.addEventListener('click', (e) => {
+            if (!tickerInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+                suggestionsList.classList.add('hidden');
+            }
+        });
+
+        async function fetchAssetsSearch(query) {
+            try {
+                const res = await fetch(`${API_URL}/assets/search?q=${query}`);
+                const data = await res.json();
+
+                suggestionsList.innerHTML = '';
+                if (data.length > 0) {
+                    suggestionsList.classList.remove('hidden');
+                    data.forEach(asset => {
+                        const li = document.createElement('li');
+                        li.className = "flex justify-between items-center p-3 hover:bg-[#283039] cursor-pointer border-b border-[#283039] last:border-0";
+                        li.innerHTML = `
+                            <div class="flex flex-col">
+                                <span class="text-white font-bold text-sm">${asset.ticker}</span>
+                                <span class="text-[#9dabb9] text-xs">${asset.name}</span>
+                            </div>
+                            <span class="text-[10px] bg-[#111418] text-[#9dabb9] px-2 py-1 rounded border border-[#283039]">${asset.type.toUpperCase()}</span>
+                        `;
+                        li.onclick = () => selectAsset(asset);
+                        suggestionsList.appendChild(li);
+                    });
+                } else {
+                    suggestionsList.classList.add('hidden');
+                }
+            } catch (e) { console.error("Search error", e); }
+        }
+
+        function selectAsset(asset) {
+            tickerInput.value = asset.ticker;
+            suggestionsList.classList.add('hidden');
+
+            // Auto Select Category
+            const type = asset.type;
+            if (type === 'stock_br') categorySelect.value = 'Ação';
+            else if (type === 'stock_us') categorySelect.value = 'Stocks';
+            else if (type === 'reit') categorySelect.value = 'REITs';
+            else if (type === 'fii') categorySelect.value = 'FII';
+            else if (type === 'crypto') categorySelect.value = 'Cripto';
+            else if (type.includes('etf')) categorySelect.value = 'ETF';
+        }
+
+        let parsedTransactions = [];
+
+        async function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                // Show loading
+                document.getElementById('upload-step-1').innerHTML = `
+                    <div class="flex flex-col items-center justify-center p-8 gap-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                        <p class="text-white text-sm">Processando PDF com IA/OCR...</p>
+                    </div>
+                `;
+
+                const res = await fetch(`${API_URL}/upload-note`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Erro no upload");
+                }
+
+                const data = await res.json();
+
+                parsedTransactions = data.transactions || [];
+
+                if (parsedTransactions.length > 0) {
+                    // Enrich Data (Category)
+                    for (let item of parsedTransactions) {
+                        try {
+                            const sRes = await fetch(`${API_URL}/assets/search?q=${item.ticker}`);
+                            const sData = await sRes.json();
+                            if (sData && sData.length > 0) {
+                                // Match Logic
+                                const match = sData.find(a => a.ticker === item.ticker) || sData[0];
+                                item.category = mapTypeToCategory(match.type);
+                            } else {
+                                item.category = 'Ação'; // Default
+                            }
+                        } catch (e) { item.category = 'Ação'; }
+                    }
+                    showPreview(data);
+                } else {
+                    alert("Nenhuma transação encontrada nesta nota.");
+                    resetUpload();
+                }
+
+            } catch (e) {
+                alert("Erro: " + e.message);
+                resetUpload();
+            }
+        }
+
+        function mapTypeToCategory(type) {
+            if (type === 'stock_br') return 'Ação';
+            if (type === 'stock_us') return 'Stocks';
+            if (type === 'reit') return 'REITs';
+            if (type === 'fii') return 'FII';
+            if (type === 'crypto') return 'Cripto';
+            if (type.includes('etf')) return 'ETF';
+            return 'Ação';
+        }
+
+        function showPreview(data) {
+            document.getElementById('upload-step-1').classList.add('hidden');
+            document.getElementById('upload-step-2').classList.remove('hidden');
+            document.getElementById('upload-step-2').classList.add('flex');
+
+            const tbody = document.getElementById('preview-body');
+            tbody.innerHTML = '';
+            document.getElementById('found-count').innerText = `${parsedTransactions.length} itens`;
+
+            const meta = data.metadata || {};
+            document.getElementById('note-metadata').innerText = `Data: ${meta.date || '?'} • Corretora: ${meta.broker || 'Desconhecida'}`;
+
+            parsedTransactions.forEach(tx => {
+                const isBuy = tx.type === 'BUY';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-2 ${isBuy ? 'text-neon-green' : 'text-red-400'} font-bold">${isBuy ? 'C' : 'V'}</td>
+                    <td class="px-4 py-2 font-bold">${tx.ticker}</td>
+                    <td class="px-4 py-2 text-right">${tx.quantity}</td>
+                    <td class="px-4 py-2 text-right">R$ ${tx.price.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-right">R$ ${tx.total.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-[#637588] text-[10px] uppercase">${tx.category}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function resetUpload() {
+            // Reset HTML of step 1 and toggle visibility
+            document.getElementById('upload-step-1').innerHTML = `
+                <div class="border-2 border-dashed border-[#283039] rounded-xl p-8 flex flex-col items-center justify-center gap-4 hover:border-primary transition-colors cursor-pointer"
+                     onclick="document.getElementById('fileInput').click()">
+                    <span class="material-symbols-outlined text-4xl text-[#637588]">upload_file</span>
+                    <p class="text-[#9dabb9] text-sm">Clique para selecionar ou arraste o PDF aqui</p>
+                    <input type="file" id="fileInput" accept=".pdf" class="hidden" onchange="handleFileSelect(this)">
+                </div>
+           `;
+            document.getElementById('upload-step-2').classList.add('hidden');
+            document.getElementById('upload-step-2').classList.remove('flex');
+            document.getElementById('upload-step-1').classList.remove('hidden');
+            document.getElementById('fileInput').value = '';
+            parsedTransactions = [];
+            document.getElementById('confirm-btn').disabled = false;
+            document.getElementById('confirm-btn').innerText = "Confirmar Importação";
+        }
+
+        async function confirmImport() {
+            const btn = document.getElementById('confirm-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Salvando (0%)...";
+            btn.disabled = true;
+
+            let success = 0;
+            let total = parsedTransactions.length;
+
+            for (let i = 0; i < total; i++) {
+                const tx = parsedTransactions[i];
+                try {
+                    // Prepare Data for /add-asset
+                    // Logic: If SELL, quantity neg?
+                    let qty = tx.quantity;
+                    if (tx.type === 'SELL') qty = -Math.abs(qty);
+
+                    const payload = {
+                        ticker: tx.ticker,
+                        amount: qty,
+                        price: tx.price,
+                        category: tx.category || "Ação"
+                    };
+
+                    await fetch(`${API_URL}/add-asset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    success++;
+                    btn.innerText = `Salvando (${Math.round((success / total) * 100)}%)...`;
+
+                } catch (e) { console.error(e); }
+            }
+
+            btn.innerText = "Concluído!";
+            setTimeout(() => {
+                resetUpload();
+                document.getElementById('uploadModal').classList.add('hidden');
+                fetchAssets(); // Refresh Dashboard - IMPORTANT!
+                // Show Success Toast?
+                alert(`${success} transações importadas com sucesso!`);
+            }, 500);
+        }
     </script>
 </body>
 
