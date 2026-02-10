@@ -47,7 +47,7 @@ async def startup_event():
 
 @app.get("/")
 def read_root():
-    return {"status": "online", "version": "v10-debug"}
+    return FileResponse("static/index.html")
 
 @app.get("/health")
 def health_check():
