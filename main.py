@@ -33,11 +33,31 @@ load_dotenv()
 
 app = FastAPI()
 
+# --- LOGGING INIT ---
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("🚀 APLICAÇÃO INICIANDO...")
+    logger.info(f"Import Errors: {IMPORT_ERRORS}")
+    logger.info(f"Supabase Configured: {'SIM' if SUPABASE_URL and SUPABASE_KEY else 'NÃO'}")
+    logger.info("✅ Startup concluído com sucesso!")
+
+@app.get("/")
+def read_root():
+    return {"status": "online", "version": "v10-debug"}
+
 @app.get("/health")
 def health_check():
     return {
         "status": "ok" if not IMPORT_ERRORS else "partial",
-        "import_errors": IMPORT_ERRORS
+        "import_errors": IMPORT_ERRORS,
+        "env_check": {
+            "supabase": bool(SUPABASE_URL and SUPABASE_KEY),
+            "google_ai": bool(GOOGLE_API_KEY)
+        }
     }
 
 # --- CONFIGURAÇÃO ---
