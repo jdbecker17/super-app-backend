@@ -341,26 +341,7 @@ def delete_asset(asset_id: int):
     return {"status": "ok"}
 
 
-@app.post("/analyze")
-def analyze(req: dict):
-    try:
-        genai.configure(api_key=GOOGLE_API_KEY)
-        assets = get_assets()
 
-        # Resumo detalhado para a IA
-        resumo = ""
-        total_patrimonio = 0
-        for a in assets:
-            val = a["quantity"] * a["current_price"]
-            total_patrimonio += val
-            resumo += f"- {a['ticker']} ({a['category']}): {a['quantity']} un. Pago R$ {a['average_price']:.2f}, Hoje R$ {a['current_price']:.2f} (Lucro: {a['profit_percent']:.2f}%)\n"
-
-        prompt = (
-            f"Analise esta carteira de R$ {total_patrimonio:.2f} como um Wealth Advisor Sênior.\n"
-            f"Dados:\n{resumo}\n"
-            "Gere HTML puro (sem markdown ```html) com 3 seções curtas e diretas:\n"
-            "1. <h3>Diagnóstico de Risco</h3>\n"
-            "2. <h3>Destaques de Performance</h3> (Cite quem lucrou mais)\n"
 @app.post("/analyze")
 def analyze(req: dict):
     try:
